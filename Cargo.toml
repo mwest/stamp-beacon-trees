@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members = [
+    "sbt-types",
+    "sbt-core",
+    "sbt-notary",
+    "sbt-client",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mwest/stamp-beacon-trees"
+authors = ["mwest <datalaundry@gmail.com>"]
+
+[workspace.dependencies]
+# Shared dependencies across crates
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+sha2 = "0.10"
+blake3 = "1.5"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Cryptographic dependencies
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rand = "0.8"
+
+# HSM integration
+pkcs11 = "0.5"
+cryptoki = "0.6"
+
+# Networking
+tonic = "0.12"
+prost = "0.13"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Testing
+proptest = "1.4"
+criterion = "0.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

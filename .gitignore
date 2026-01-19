@@ -1,0 +1,29 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDEs
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Stamp/Beacon Trees specific
+notary.toml
+*.sbt/
+.sbt/
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/

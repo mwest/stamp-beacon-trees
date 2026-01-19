@@ -1,0 +1,49 @@
+# Example Stamp/Beacon Trees Notary Configuration
+# Copy this to notary.toml and customize for your deployment
+
+[server]
+# Network interface to bind to
+# Use "0.0.0.0" to listen on all interfaces
+# Use "127.0.0.1" for local-only access
+host = "127.0.0.1"
+
+# Port to listen on
+port = 8080
+
+# Maximum concurrent connections
+max_connections = 1000
+
+[hsm]
+# Path to PKCS#11 library
+# SoftHSM (development): "/usr/lib/softhsm/libsofthsm2.so"
+# YubiHSM: "/usr/lib/x86_64-linux-gnu/pkcs11/yubihsm_pkcs11.so"
+# AWS CloudHSM: "/opt/cloudhsm/lib/libcloudhsm_pkcs11.so"
+pkcs11_library = "/usr/lib/softhsm/libsofthsm2.so"
+
+# HSM slot ID
+# Use pkcs11-tool --list-slots to find available slots
+slot_id = 0
+
+# Key label in HSM
+# The Ed25519 signing key must already exist with this label
+key_label = "sbt-notary-key"
+
+# Optional: Key ID (alternative to label)
+# key_id = [0x01, 0x02, 0x03]
+
+# NOTE: HSM PIN should be provided via environment variable:
+# export Stamp/Beacon Trees_HSM_PIN="your-pin-here"
+
+[batch]
+# Maximum number of requests in a single batch
+# Larger batches = more efficient, but higher latency
+max_batch_size = 1000
+
+# Maximum time to wait before processing a batch (milliseconds)
+# Ensures requests don't wait too long even if batch isn't full
+max_wait_ms = 100
+
+# Target interval for processing batches (milliseconds)
+# This determines the timestamp granularity
+# 1000ms = 1 second between tree builds
+batch_interval_ms = 1000

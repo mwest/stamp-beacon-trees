@@ -1,0 +1,39 @@
+[package]
+name = "sbt-notary"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "sbt-notary"
+path = "src/main.rs"
+
+[dependencies]
+sbt-types = { path = "../sbt-types" }
+sbt-core = { path = "../sbt-core" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# HSM integration via PKCS#11
+pkcs11 = { workspace = true }
+cryptoki = { workspace = true }
+
+# Networking
+tonic = { workspace = true }
+prost = { workspace = true }
+
+# Configuration
+toml = "0.8"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+proptest = { workspace = true }

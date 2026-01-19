@@ -1,0 +1,35 @@
+[package]
+name = "sbt-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "sbt"
+path = "src/main.rs"
+
+[dependencies]
+sbt-types = { path = "../sbt-types" }
+sbt-core = { path = "../sbt-core" }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+# Networking
+tonic = { workspace = true }
+prost = { workspace = true }
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+hex = { workspace = true }
+
+# Storage
+sled = "0.34"
+
+[build-dependencies]
+tonic-build = "0.12"
