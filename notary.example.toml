@@ -64,3 +64,35 @@ batch_interval_ms = 1000
 #
 # # Require client certificates (mTLS) - only applies if ca_cert_path is set
 # # require_client_cert = true
+
+# Rate Limiting Configuration (optional - omit this section to disable rate limiting)
+# Protects the server from DoS attacks using token bucket algorithm
+#
+# [rate_limit]
+# # Enable rate limiting (default: true when section is present)
+# enabled = true
+#
+# # Maximum requests per second per client IP
+# per_ip_rps = 100
+#
+# # Maximum burst size per client IP (token bucket capacity)
+# # Allows short bursts above the per-second rate
+# per_ip_burst = 200
+#
+# # Maximum global requests per second (across all clients)
+# global_rps = 10000
+#
+# # Maximum global burst size
+# global_burst = 20000
+#
+# # Maximum request body size in bytes (default: 1KB for a digest)
+# # Requests exceeding this size are rejected
+# max_request_size = 1024
+#
+# # Cleanup interval for expired rate limit entries (seconds)
+# # How often to purge inactive client tracking entries
+# cleanup_interval_secs = 60
+#
+# # Time-to-live for client rate limit entries (seconds)
+# # Entries not seen within this period are removed
+# entry_ttl_secs = 300

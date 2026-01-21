@@ -10,6 +10,7 @@ use crate::batch::{BatchProcessor, BatchRequest};
 use crate::config::NotaryConfig;
 use crate::grpc::{SbtNotaryService, proto::sbt_notary_server::SbtNotaryServer};
 use crate::hsm::HsmSigner;
+use crate::rate_limit::RateLimiter;
 use crate::tls::load_server_tls_config;
 use sbt_types::{StampRequest, StampResponse};
 
@@ -18,6 +19,7 @@ pub struct NotaryServer {
     config: NotaryConfig,
     signer: Arc<HsmSigner>,
     request_tx: mpsc::Sender<BatchRequest>,
+    rate_limiter: Option<Arc<RateLimiter>>,
 }
 
 impl NotaryServer {
@@ -57,10 +59,27 @@ impl NotaryServer {
             batch_processor.run().await;
         });
 
+        // Initialize rate limiter if configured
+        let rate_limiter = config.rate_limit.as_ref().map(|rl_config| {
+            let limiter = Arc::new(RateLimiter::new(rl_config.clone()));
+
+            // Start background cleanup task
+            let cleanup_limiter = limiter.clone();
+            cleanup_limiter.start_cleanup_task();
+
+            info!(
+                "Rate limiting enabled: {} rps/IP, {} global rps",
+                rl_config.per_ip_rps, rl_config.global_rps
+            );
+
+            limiter
+        });
+
         Ok(Self {
             config,
             signer,
             request_tx,
+            rate_limiter,
         })
     }
 
@@ -102,8 +121,16 @@ impl NotaryServer {
         let addr: SocketAddr = format!("{}:{}", self.config.server.host, self.config.server.port)
             .parse()?;
 
-        // Create the gRPC service
-        let service = SbtNotaryService::new(self.request_tx.clone(), self.signer.clone());
+        // Create the gRPC service with or without rate limiting
+        let service = if let Some(limiter) = &self.rate_limiter {
+            SbtNotaryService::with_rate_limiter(
+                self.request_tx.clone(),
+                self.signer.clone(),
+                limiter.clone(),
+            )
+        } else {
+            SbtNotaryService::new(self.request_tx.clone(), self.signer.clone())
+        };
         let sbt_service = SbtNotaryServer::new(service);
 
         // Check if TLS is configured

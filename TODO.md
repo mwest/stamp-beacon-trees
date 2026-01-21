@@ -2,6 +2,7 @@
 
 ## Recently Completed ✅
 
+- [x] **Implemented rate limiting** - Token bucket rate limiter with per-IP and global limits. See `sbt-notary/src/rate_limit.rs` and `[rate_limit]` config section in `notary.example.toml`.
 - [x] **Implemented TLS support** - Server and client TLS with optional mTLS. See `sbt-notary/src/tls.rs`, `sbt-client/src/tls.rs`, and CLI `--ca-cert`, `--client-cert`, `--client-key` options.
 - [x] **Implemented gRPC network protocol** - Full client/server communication using tonic/prost. See `proto/sbt.proto`, `sbt-notary/src/grpc.rs`, `sbt-client/src/grpc.rs`.
 - [x] **Fixed critical Merkle path verification bug** - The comparison was checking `computed_root != computed_root` (always false). Fixed in `sbt-core/src/verify.rs`.
@@ -84,33 +85,32 @@
 
 **References**: See [SECURITY.md](SECURITY.md)
 
-### 3. Rate Limiting & DoS Protection 🛡️ HIGH PRIORITY
+### 3. Rate Limiting & DoS Protection ✅ COMPLETED
 
-**Status**: Not started
-**Blocking**: Production deployment
+**Status**: Completed
+**Files created**:
+- `sbt-notary/src/rate_limit.rs` - Token bucket rate limiter implementation
 
-#### 3.1 Server-Side Rate Limiting
+#### 3.1 Server-Side Rate Limiting ✅
 
-- [ ] Per-client IP rate limiting
-- [ ] Global throughput limiting
-- [ ] Configure limits in `notary.toml`
-- [ ] Add rate limit headers in responses
-- [ ] Log rate limit violations
-- [ ] Add metrics for monitoring
+- [x] Per-client IP rate limiting (token bucket algorithm)
+- [x] Global throughput limiting (global token bucket)
+- [x] Configure limits in `notary.toml` via `[rate_limit]` section
+- [x] Automatic cleanup of expired client entries
+- [x] Background cleanup task for memory efficiency
 
-#### 3.2 Request Validation
+#### 3.2 Request Validation ✅
 
-- [ ] Maximum request size
-- [ ] Batch size enforcement
-- [ ] Request schema validation
-- [ ] Reject malformed requests early
+- [x] Maximum request size enforcement
+- [x] Request schema validation in gRPC layer
+- [x] Reject malformed requests early
 
-#### 3.3 Optional: Proof-of-Work
+#### 3.3 Remaining Rate Limiting TODOs
 
-- [ ] Design PoW scheme
-- [ ] Implement client solver
-- [ ] Implement server verifier
-- [ ] Make configurable (disabled by default)
+- [ ] Add rate limit headers in responses (X-RateLimit-*)
+- [ ] Log rate limit violations with client IP
+- [ ] Add metrics for monitoring (rate limit hits, active clients)
+- [ ] Optional: Proof-of-Work scheme for anti-spam
 
 ### 4. Authentication & Authorization 🔑 HIGH PRIORITY
 
@@ -510,8 +510,8 @@
 - [x] Add domain separation to signatures
 - [x] Network protocol implemented
 - [x] TLS configured
+- [x] Basic rate limiting
 - [ ] Basic authentication (API keys minimum)
-- [ ] Basic rate limiting
 - [ ] Documentation complete
 - [ ] Integration tests passing
 - [ ] Security audit completed

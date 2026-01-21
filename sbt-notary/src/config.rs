@@ -17,6 +17,70 @@ pub struct NotaryConfig {
     /// TLS configuration (optional)
     #[serde(default)]
     pub tls: Option<TlsConfig>,
+
+    /// Rate limiting configuration (optional)
+    #[serde(default)]
+    pub rate_limit: Option<RateLimitConfig>,
+}
+
+/// Rate limiting configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RateLimitConfig {
+    /// Enable rate limiting
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+
+    /// Maximum requests per second per client IP
+    #[serde(default = "default_per_ip_rps")]
+    pub per_ip_rps: u32,
+
+    /// Maximum burst size per client IP (token bucket capacity)
+    #[serde(default = "default_per_ip_burst")]
+    pub per_ip_burst: u32,
+
+    /// Maximum global requests per second (across all clients)
+    #[serde(default = "default_global_rps")]
+    pub global_rps: u32,
+
+    /// Maximum global burst size
+    #[serde(default = "default_global_burst")]
+    pub global_burst: u32,
+
+    /// Maximum request body size in bytes (default: 1KB for a digest)
+    #[serde(default = "default_max_request_size")]
+    pub max_request_size: usize,
+
+    /// Cleanup interval for expired rate limit entries (seconds)
+    #[serde(default = "default_cleanup_interval")]
+    pub cleanup_interval_secs: u64,
+
+    /// Time-to-live for client rate limit entries (seconds)
+    #[serde(default = "default_entry_ttl")]
+    pub entry_ttl_secs: u64,
+}
+
+fn default_enabled() -> bool { true }
+fn default_per_ip_rps() -> u32 { 100 }
+fn default_per_ip_burst() -> u32 { 200 }
+fn default_global_rps() -> u32 { 10000 }
+fn default_global_burst() -> u32 { 20000 }
+fn default_max_request_size() -> usize { 1024 } // 1KB
+fn default_cleanup_interval() -> u64 { 60 }
+fn default_entry_ttl() -> u64 { 300 }
+
+impl Default for RateLimitConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_enabled(),
+            per_ip_rps: default_per_ip_rps(),
+            per_ip_burst: default_per_ip_burst(),
+            global_rps: default_global_rps(),
+            global_burst: default_global_burst(),
+            max_request_size: default_max_request_size(),
+            cleanup_interval_secs: default_cleanup_interval(),
+            entry_ttl_secs: default_entry_ttl(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +164,7 @@ impl Default for NotaryConfig {
                 batch_interval_ms: 1000,
             },
             tls: None,
+            rate_limit: None,
         }
     }
 }

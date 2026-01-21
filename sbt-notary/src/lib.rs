@@ -7,6 +7,7 @@ pub mod batch;
 pub mod config;
 pub mod grpc;
 pub mod hsm;
+pub mod rate_limit;
 pub mod server;
 pub mod tls;
 

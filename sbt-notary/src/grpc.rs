@@ -1,5 +1,6 @@
 //! gRPC service implementation for the SBT Notary
 
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
@@ -10,6 +11,7 @@ use tracing::{debug, info, warn};
 
 use crate::batch::BatchRequest;
 use crate::hsm::HsmSigner;
+use crate::rate_limit::{RateLimiter, RateLimitError};
 use sbt_types::{Digest, Nonce, PublicKey, Signature, Timestamp as SbtTimestamp};
 use sbt_types::messages::{MerklePath, MerkleNode, TimestampProof};
 
@@ -28,6 +30,7 @@ use proto::{
 pub struct SbtNotaryService {
     request_tx: mpsc::Sender<BatchRequest>,
     signer: Arc<HsmSigner>,
+    rate_limiter: Option<Arc<RateLimiter>>,
     start_time: Instant,
     timestamps_issued: AtomicU64,
 }
@@ -38,8 +41,82 @@ impl SbtNotaryService {
         Self {
             request_tx,
             signer,
+            rate_limiter: None,
             start_time: Instant::now(),
             timestamps_issued: AtomicU64::new(0),
+        }
+    }
+
+    /// Create a new gRPC service with rate limiting
+    pub fn with_rate_limiter(
+        request_tx: mpsc::Sender<BatchRequest>,
+        signer: Arc<HsmSigner>,
+        rate_limiter: Arc<RateLimiter>,
+    ) -> Self {
+        Self {
+            request_tx,
+            signer,
+            rate_limiter: Some(rate_limiter),
+            start_time: Instant::now(),
+            timestamps_issued: AtomicU64::new(0),
+        }
+    }
+
+    /// Extract client IP from request metadata
+    fn extract_client_ip<T>(&self, request: &Request<T>) -> Option<IpAddr> {
+        // Try to get from x-forwarded-for header (for reverse proxies)
+        if let Some(forwarded) = request.metadata().get("x-forwarded-for") {
+            if let Ok(s) = forwarded.to_str() {
+                // Take the first IP in the chain (original client)
+                if let Some(ip_str) = s.split(',').next() {
+                    if let Ok(ip) = ip_str.trim().parse() {
+                        return Some(ip);
+                    }
+                }
+            }
+        }
+
+        // Try to get from x-real-ip header
+        if let Some(real_ip) = request.metadata().get("x-real-ip") {
+            if let Ok(s) = real_ip.to_str() {
+                if let Ok(ip) = s.parse() {
+                    return Some(ip);
+                }
+            }
+        }
+
+        // Fall back to remote address from connection
+        request.remote_addr().map(|addr| addr.ip())
+    }
+
+    /// Check rate limits for a request
+    async fn check_rate_limits<T>(&self, request: &Request<T>) -> Result<(), Status> {
+        if let Some(limiter) = &self.rate_limiter {
+            let client_ip = self.extract_client_ip(request)
+                .unwrap_or_else(|| IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)));
+
+            limiter.check_rate_limit(client_ip).await.map_err(rate_limit_to_status)?;
+        }
+        Ok(())
+    }
+
+    /// Check request size limits
+    fn check_request_size(&self, size: usize) -> Result<(), Status> {
+        if let Some(limiter) = &self.rate_limiter {
+            limiter.check_request_size(size).map_err(rate_limit_to_status)?;
+        }
+        Ok(())
+    }
+}
+
+/// Convert rate limit error to gRPC status
+fn rate_limit_to_status(err: RateLimitError) -> Status {
+    match err {
+        RateLimitError::GlobalLimitExceeded | RateLimitError::PerIpLimitExceeded => {
+            Status::resource_exhausted(err.to_string())
+        }
+        RateLimitError::RequestTooLarge { .. } => {
+            Status::invalid_argument(err.to_string())
         }
     }
 }
@@ -50,7 +127,13 @@ impl SbtNotary for SbtNotaryService {
         &self,
         request: Request<StampRequest>,
     ) -> Result<Response<StampResponse>, Status> {
+        // Check rate limits first
+        self.check_rate_limits(&request).await?;
+
         let req = request.into_inner();
+
+        // Check request size (approximate based on digest field)
+        self.check_request_size(req.digest.len())?;
 
         // Validate version
         if req.version != 1 {
