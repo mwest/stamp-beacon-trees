@@ -1,6 +1,8 @@
 //! gRPC client implementation for communicating with SBT notary servers
 
 use tonic::transport::{Channel, Endpoint};
+use tonic::metadata::MetadataValue;
+use tonic::Request;
 
 use sbt_types::{Digest, Nonce, PublicKey, Signature, Timestamp as SbtTimestamp};
 use sbt_types::messages::{MerklePath, MerkleNode, TimestampProof, StampResponse};
@@ -16,9 +18,14 @@ pub mod proto {
 use proto::sbt_notary_client::SbtNotaryClient;
 use proto::{StampRequest, PublicKeyRequest, HealthRequest};
 
+/// The API key header name (must match server)
+const API_KEY_HEADER: &str = "x-api-key";
+
 /// gRPC client for the SBT Notary service
 pub struct GrpcClient {
     client: SbtNotaryClient<Channel>,
+    /// API key for authentication
+    api_key: Option<String>,
 }
 
 impl GrpcClient {
@@ -28,7 +35,7 @@ impl GrpcClient {
             .await
             .map_err(|e| ClientError::Network(format!("Failed to connect: {}", e)))?;
 
-        Ok(Self { client })
+        Ok(Self { client, api_key: None })
     }
 
     /// Connect to a notary server with TLS
@@ -46,18 +53,38 @@ impl GrpcClient {
 
         let client = SbtNotaryClient::new(channel);
 
-        Ok(Self { client })
+        Ok(Self { client, api_key: None })
+    }
+
+    /// Set the API key for authentication
+    pub fn set_api_key(&mut self, api_key: String) {
+        self.api_key = Some(api_key);
+    }
+
+    /// Create a request with authentication headers
+    fn make_request<T>(&self, inner: T) -> Request<T> {
+        let mut request = Request::new(inner);
+
+        if let Some(api_key) = &self.api_key {
+            if let Ok(value) = api_key.parse::<MetadataValue<_>>() {
+                request.metadata_mut().insert(API_KEY_HEADER, value);
+            }
+        }
+
+        request
     }
 
     /// Submit a digest for timestamping
     pub async fn timestamp(&mut self, digest: &Digest) -> Result<StampResponse> {
         let client_send_time = SbtTimestamp::now();
 
-        let request = StampRequest {
+        let inner = StampRequest {
             version: 1,
             digest: digest.as_bytes().to_vec(),
             client_send_time: Some(timestamp_to_proto(&client_send_time)),
         };
+
+        let request = self.make_request(inner);
 
         let response = self
             .client
@@ -71,9 +98,11 @@ impl GrpcClient {
 
     /// Get the notary's public key
     pub async fn get_public_key(&mut self) -> Result<PublicKey> {
+        let request = self.make_request(PublicKeyRequest {});
+
         let response = self
             .client
-            .get_public_key(PublicKeyRequest {})
+            .get_public_key(request)
             .await
             .map_err(|e| ClientError::Network(format!("GetPublicKey request failed: {}", e)))?
             .into_inner();
@@ -84,9 +113,11 @@ impl GrpcClient {
 
     /// Check server health
     pub async fn health(&mut self) -> Result<HealthStatus> {
+        let request = self.make_request(HealthRequest {});
+
         let response = self
             .client
-            .health(HealthRequest {})
+            .health(request)
             .await
             .map_err(|e| ClientError::Network(format!("Health check failed: {}", e)))?
             .into_inner();

@@ -96,3 +96,39 @@ batch_interval_ms = 1000
 # # Time-to-live for client rate limit entries (seconds)
 # # Entries not seen within this period are removed
 # entry_ttl_secs = 300
+
+# Authentication Configuration (optional - omit this section to disable authentication)
+# Supports API key authentication and mTLS client certificates
+#
+# [auth]
+# # Enable authentication (default: true when section is present)
+# enabled = true
+#
+# # Authentication mode:
+# # - "api_key": Require API key in x-api-key header (default)
+# # - "mtls_only": Require mTLS client certificate (TLS must be configured with ca_cert_path)
+# # - "hybrid": Accept either API key or mTLS certificate
+# mode = "api_key"
+#
+# # Allow anonymous access to health and public key endpoints
+# # (recommended to leave true for monitoring)
+# allow_anonymous_health = true
+#
+# # Allow anonymous access to timestamp endpoint
+# # (not recommended - use with rate limiting only)
+# allow_anonymous_timestamp = false
+#
+# # API keys can be configured inline, from a file, or from environment variable
+#
+# # Inline API keys (not recommended for production - use file or env var)
+# # [[auth.api_keys]]
+# # key_id = "client-1"
+# # secret = "your-secret-key-here"
+# # description = "Main client application"
+# # enabled = true
+#
+# # Load API keys from a file (one per line, format: "key_id:secret" or just "secret")
+# # api_keys_file = "/etc/sbt/api_keys.txt"
+#
+# # API keys can also be loaded from environment variable:
+# # export SBT_API_KEYS="key1:secret1,key2:secret2"

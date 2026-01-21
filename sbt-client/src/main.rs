@@ -31,6 +31,11 @@ struct Cli {
     #[arg(long)]
     client_key: Option<PathBuf>,
 
+    /// API key for authentication
+    /// Can also be set via SBT_API_KEY environment variable
+    #[arg(long, env = "SBT_API_KEY")]
+    api_key: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -88,7 +93,7 @@ fn build_client(cli: &Cli) -> SbtClient {
     // Check if TLS options are provided
     let has_tls = cli.ca_cert.is_some() || cli.server.starts_with("https://");
 
-    if has_tls {
+    let mut client = if has_tls {
         let mut tls_options = if let Some(ca_cert) = &cli.ca_cert {
             TlsOptions::with_ca_cert(ca_cert.to_string_lossy().to_string())
         } else {
@@ -107,7 +112,14 @@ fn build_client(cli: &Cli) -> SbtClient {
         SbtClient::with_tls(cli.server.clone(), tls_options)
     } else {
         SbtClient::new(cli.server.clone())
+    };
+
+    // Add API key if provided
+    if let Some(api_key) = &cli.api_key {
+        client = client.with_api_key(api_key.clone());
     }
+
+    client
 }
 
 #[tokio::main]

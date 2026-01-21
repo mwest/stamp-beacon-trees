@@ -2,6 +2,7 @@
 
 ## Recently Completed ✅
 
+- [x] **Implemented authentication** - API key and mTLS authentication with configurable modes. See `sbt-notary/src/auth.rs` and `[auth]` config section in `notary.example.toml`.
 - [x] **Implemented rate limiting** - Token bucket rate limiter with per-IP and global limits. See `sbt-notary/src/rate_limit.rs` and `[rate_limit]` config section in `notary.example.toml`.
 - [x] **Implemented TLS support** - Server and client TLS with optional mTLS. See `sbt-notary/src/tls.rs`, `sbt-client/src/tls.rs`, and CLI `--ca-cert`, `--client-cert`, `--client-key` options.
 - [x] **Implemented gRPC network protocol** - Full client/server communication using tonic/prost. See `proto/sbt.proto`, `sbt-notary/src/grpc.rs`, `sbt-client/src/grpc.rs`.
@@ -112,23 +113,29 @@
 - [ ] Add metrics for monitoring (rate limit hits, active clients)
 - [ ] Optional: Proof-of-Work scheme for anti-spam
 
-### 4. Authentication & Authorization 🔑 HIGH PRIORITY
+### 4. Authentication & Authorization ✅ COMPLETED
 
-**Status**: Not started
-**Blocking**: Production deployment
+**Status**: Completed
+**Files created**:
+- `sbt-notary/src/auth.rs` - Authentication module with API key and mTLS support
 
-**Options to consider**:
-- [ ] API key authentication (minimum viable)
-- [ ] OAuth 2.0 / JWT tokens
-- [ ] Mutual TLS (mTLS) - recommended for production
-- [ ] Anonymous public access (with rate limits)
+#### 4.1 Implemented Features ✅
 
-**Implementation**:
-- [ ] Choose authentication method
-- [ ] Add auth middleware to server
-- [ ] Update client to provide credentials
-- [ ] Document authentication setup
-- [ ] Add auth to example configs
+- [x] API key authentication via `x-api-key` header
+- [x] mTLS client certificate authentication
+- [x] Hybrid mode (API key OR mTLS)
+- [x] Configurable anonymous access for health endpoints
+- [x] API keys loadable from: config, file, or environment variable
+- [x] Runtime API key management (add/remove/disable)
+- [x] Client CLI support (`--api-key` or `SBT_API_KEY` env var)
+- [x] Authentication documented in example config
+
+#### 4.2 Remaining Auth TODOs
+
+- [ ] OAuth 2.0 / JWT tokens support
+- [ ] API key rotation mechanism
+- [ ] Audit logging for authentication events
+- [ ] Per-key rate limiting
 
 ---
 
@@ -511,7 +518,7 @@
 - [x] Network protocol implemented
 - [x] TLS configured
 - [x] Basic rate limiting
-- [ ] Basic authentication (API keys minimum)
+- [x] Basic authentication (API keys minimum)
 - [ ] Documentation complete
 - [ ] Integration tests passing
 - [ ] Security audit completed

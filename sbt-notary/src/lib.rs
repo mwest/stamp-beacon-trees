@@ -3,6 +3,7 @@
 //! The trusted timestamping service that builds stamp/beacon trees
 //! and signs them using an HSM.
 
+pub mod auth;
 pub mod batch;
 pub mod config;
 pub mod grpc;

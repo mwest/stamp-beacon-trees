@@ -6,6 +6,7 @@ use tokio::sync::{mpsc, oneshot};
 use tonic::transport::Server;
 use tracing::{info, warn};
 
+use crate::auth::Authenticator;
 use crate::batch::{BatchProcessor, BatchRequest};
 use crate::config::NotaryConfig;
 use crate::grpc::{SbtNotaryService, proto::sbt_notary_server::SbtNotaryServer};
@@ -20,6 +21,7 @@ pub struct NotaryServer {
     signer: Arc<HsmSigner>,
     request_tx: mpsc::Sender<BatchRequest>,
     rate_limiter: Option<Arc<RateLimiter>>,
+    authenticator: Option<Arc<Authenticator>>,
 }
 
 impl NotaryServer {
@@ -75,11 +77,29 @@ impl NotaryServer {
             limiter
         });
 
+        // Initialize authenticator if configured
+        let authenticator = if let Some(auth_config) = &config.auth {
+            let auth = Authenticator::new(auth_config.clone())?;
+
+            if auth.is_enabled() {
+                info!(
+                    "Authentication enabled (mode: {:?})",
+                    auth.mode()
+                );
+            }
+
+            Some(Arc::new(auth))
+        } else {
+            info!("Authentication disabled - all requests allowed");
+            None
+        };
+
         Ok(Self {
             config,
             signer,
             request_tx,
             rate_limiter,
+            authenticator,
         })
     }
 
@@ -121,8 +141,15 @@ impl NotaryServer {
         let addr: SocketAddr = format!("{}:{}", self.config.server.host, self.config.server.port)
             .parse()?;
 
-        // Create the gRPC service with or without rate limiting
-        let service = if let Some(limiter) = &self.rate_limiter {
+        // Create the gRPC service with rate limiting and/or authentication
+        let service = if let Some(auth) = &self.authenticator {
+            SbtNotaryService::with_auth(
+                self.request_tx.clone(),
+                self.signer.clone(),
+                self.rate_limiter.clone(),
+                auth.clone(),
+            )
+        } else if let Some(limiter) = &self.rate_limiter {
             SbtNotaryService::with_rate_limiter(
                 self.request_tx.clone(),
                 self.signer.clone(),

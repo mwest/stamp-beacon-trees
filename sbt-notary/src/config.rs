@@ -21,6 +21,10 @@ pub struct NotaryConfig {
     /// Rate limiting configuration (optional)
     #[serde(default)]
     pub rate_limit: Option<RateLimitConfig>,
+
+    /// Authentication configuration (optional)
+    #[serde(default)]
+    pub auth: Option<AuthConfig>,
 }
 
 /// Rate limiting configuration
@@ -79,6 +83,82 @@ impl Default for RateLimitConfig {
             max_request_size: default_max_request_size(),
             cleanup_interval_secs: default_cleanup_interval(),
             entry_ttl_secs: default_entry_ttl(),
+        }
+    }
+}
+
+/// Authentication configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    /// Enable authentication
+    #[serde(default = "default_auth_enabled")]
+    pub enabled: bool,
+
+    /// Authentication mode
+    #[serde(default)]
+    pub mode: AuthMode,
+
+    /// API keys (for api_key and hybrid modes)
+    /// Keys can also be loaded from a file or environment variable
+    #[serde(default)]
+    pub api_keys: Vec<ApiKeyEntry>,
+
+    /// Path to API keys file (one key per line, format: "key_id:secret" or just "secret")
+    pub api_keys_file: Option<PathBuf>,
+
+    /// Allow anonymous access to health and public key endpoints
+    #[serde(default = "default_allow_anonymous_health")]
+    pub allow_anonymous_health: bool,
+
+    /// Allow anonymous access to timestamp endpoint (when combined with rate limiting)
+    #[serde(default)]
+    pub allow_anonymous_timestamp: bool,
+}
+
+/// Authentication mode
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthMode {
+    /// API key authentication via header
+    #[default]
+    ApiKey,
+    /// mTLS client certificate authentication (requires TLS with ca_cert_path)
+    MtlsOnly,
+    /// Both API key and mTLS (either is sufficient)
+    Hybrid,
+}
+
+/// API key entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiKeyEntry {
+    /// Key identifier (for logging and revocation)
+    pub key_id: String,
+
+    /// The API key secret (should be provided via environment variable in production)
+    #[serde(skip_serializing)]
+    pub secret: String,
+
+    /// Optional description
+    pub description: Option<String>,
+
+    /// Whether this key is enabled
+    #[serde(default = "default_key_enabled")]
+    pub enabled: bool,
+}
+
+fn default_auth_enabled() -> bool { true }
+fn default_allow_anonymous_health() -> bool { true }
+fn default_key_enabled() -> bool { true }
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_auth_enabled(),
+            mode: AuthMode::default(),
+            api_keys: Vec::new(),
+            api_keys_file: None,
+            allow_anonymous_health: default_allow_anonymous_health(),
+            allow_anonymous_timestamp: false,
         }
     }
 }
@@ -165,6 +245,7 @@ impl Default for NotaryConfig {
             },
             tls: None,
             rate_limit: None,
+            auth: None,
         }
     }
 }

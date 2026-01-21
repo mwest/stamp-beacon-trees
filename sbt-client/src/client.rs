@@ -16,6 +16,8 @@ pub struct SbtClient {
     grpc_client: Option<GrpcClient>,
     /// TLS options (None = no TLS)
     tls_options: Option<TlsOptions>,
+    /// API key for authentication (optional)
+    api_key: Option<String>,
     timeout: Duration,
 }
 
@@ -26,6 +28,7 @@ impl SbtClient {
             server_url,
             grpc_client: None,
             tls_options: None,
+            api_key: None,
             timeout: Duration::from_secs(10),
         }
     }
@@ -36,8 +39,15 @@ impl SbtClient {
             server_url,
             grpc_client: None,
             tls_options: Some(tls_options),
+            api_key: None,
             timeout: Duration::from_secs(10),
         }
+    }
+
+    /// Set the API key for authentication
+    pub fn with_api_key(mut self, api_key: String) -> Self {
+        self.api_key = Some(api_key);
+        self
     }
 
     /// Set the request timeout
@@ -49,11 +59,17 @@ impl SbtClient {
     /// Ensure the gRPC client is connected
     async fn ensure_connected(&mut self) -> Result<&mut GrpcClient> {
         if self.grpc_client.is_none() {
-            let client = if let Some(tls_options) = &self.tls_options {
+            let mut client = if let Some(tls_options) = &self.tls_options {
                 GrpcClient::connect_with_tls(&self.server_url, tls_options).await?
             } else {
                 GrpcClient::connect(&self.server_url).await?
             };
+
+            // Set API key if configured
+            if let Some(api_key) = &self.api_key {
+                client.set_api_key(api_key.clone());
+            }
+
             self.grpc_client = Some(client);
         }
         Ok(self.grpc_client.as_mut().unwrap())

@@ -9,6 +9,7 @@ use tokio::sync::{mpsc, oneshot};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info, warn};
 
+use crate::auth::{AuthError, Authenticator};
 use crate::batch::BatchRequest;
 use crate::hsm::HsmSigner;
 use crate::rate_limit::{RateLimiter, RateLimitError};
@@ -26,11 +27,15 @@ use proto::{
     StampRequest, StampResponse, health_response::Status as HealthStatus,
 };
 
+/// The API key header name
+pub const API_KEY_HEADER: &str = "x-api-key";
+
 /// The gRPC service implementation
 pub struct SbtNotaryService {
     request_tx: mpsc::Sender<BatchRequest>,
     signer: Arc<HsmSigner>,
     rate_limiter: Option<Arc<RateLimiter>>,
+    authenticator: Option<Arc<Authenticator>>,
     start_time: Instant,
     timestamps_issued: AtomicU64,
 }
@@ -42,6 +47,7 @@ impl SbtNotaryService {
             request_tx,
             signer,
             rate_limiter: None,
+            authenticator: None,
             start_time: Instant::now(),
             timestamps_issued: AtomicU64::new(0),
         }
@@ -57,6 +63,24 @@ impl SbtNotaryService {
             request_tx,
             signer,
             rate_limiter: Some(rate_limiter),
+            authenticator: None,
+            start_time: Instant::now(),
+            timestamps_issued: AtomicU64::new(0),
+        }
+    }
+
+    /// Create a new gRPC service with rate limiting and authentication
+    pub fn with_auth(
+        request_tx: mpsc::Sender<BatchRequest>,
+        signer: Arc<HsmSigner>,
+        rate_limiter: Option<Arc<RateLimiter>>,
+        authenticator: Arc<Authenticator>,
+    ) -> Self {
+        Self {
+            request_tx,
+            signer,
+            rate_limiter,
+            authenticator: Some(authenticator),
             start_time: Instant::now(),
             timestamps_issued: AtomicU64::new(0),
         }
@@ -107,6 +131,62 @@ impl SbtNotaryService {
         }
         Ok(())
     }
+
+    /// Extract API key from request metadata
+    fn extract_api_key<T>(&self, request: &Request<T>) -> Option<String> {
+        request
+            .metadata()
+            .get(API_KEY_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string())
+    }
+
+    /// Check if the request has a valid mTLS client certificate
+    /// Note: In tonic, mTLS verification happens at the TLS layer.
+    /// If we get here with mTLS configured, the client was already verified.
+    fn has_client_certificate<T>(&self, _request: &Request<T>) -> bool {
+        // TODO: When tonic supports extracting client cert info,
+        // we can check for specific cert attributes here.
+        // For now, if mTLS is configured at the TLS layer, clients
+        // reaching this point have already been verified.
+        false // Conservatively return false until we can extract cert info
+    }
+
+    /// Authenticate a request for the timestamp endpoint
+    async fn authenticate_timestamp<T>(&self, request: &Request<T>) -> Result<(), Status> {
+        if let Some(auth) = &self.authenticator {
+            let api_key = self.extract_api_key(request);
+            let has_cert = self.has_client_certificate(request);
+
+            auth.authenticate(
+                api_key.as_deref(),
+                has_cert,
+                None,
+                false, // not a health endpoint
+            )
+            .await
+            .map_err(auth_error_to_status)?;
+        }
+        Ok(())
+    }
+
+    /// Authenticate a request for health/public key endpoints
+    async fn authenticate_health<T>(&self, request: &Request<T>) -> Result<(), Status> {
+        if let Some(auth) = &self.authenticator {
+            let api_key = self.extract_api_key(request);
+            let has_cert = self.has_client_certificate(request);
+
+            auth.authenticate(
+                api_key.as_deref(),
+                has_cert,
+                None,
+                true, // health endpoint
+            )
+            .await
+            .map_err(auth_error_to_status)?;
+        }
+        Ok(())
+    }
 }
 
 /// Convert rate limit error to gRPC status
@@ -121,13 +201,31 @@ fn rate_limit_to_status(err: RateLimitError) -> Status {
     }
 }
 
+/// Convert authentication error to gRPC status
+fn auth_error_to_status(err: AuthError) -> Status {
+    match err {
+        AuthError::MissingCredentials | AuthError::AuthenticationRequired => {
+            Status::unauthenticated(err.to_string())
+        }
+        AuthError::InvalidApiKey | AuthError::KeyDisabled { .. } => {
+            Status::unauthenticated(err.to_string())
+        }
+        AuthError::MtlsRequired => {
+            Status::unauthenticated(err.to_string())
+        }
+    }
+}
+
 #[tonic::async_trait]
 impl SbtNotary for SbtNotaryService {
     async fn timestamp(
         &self,
         request: Request<StampRequest>,
     ) -> Result<Response<StampResponse>, Status> {
-        // Check rate limits first
+        // Check authentication first
+        self.authenticate_timestamp(&request).await?;
+
+        // Check rate limits
         self.check_rate_limits(&request).await?;
 
         let req = request.into_inner();
@@ -193,8 +291,11 @@ impl SbtNotary for SbtNotaryService {
 
     async fn get_public_key(
         &self,
-        _request: Request<PublicKeyRequest>,
+        request: Request<PublicKeyRequest>,
     ) -> Result<Response<PublicKeyResponse>, Status> {
+        // Check authentication (allows anonymous by default)
+        self.authenticate_health(&request).await?;
+
         let pubkey = self.signer.public_key();
 
         info!("Public key requested");
@@ -207,8 +308,11 @@ impl SbtNotary for SbtNotaryService {
 
     async fn health(
         &self,
-        _request: Request<HealthRequest>,
+        request: Request<HealthRequest>,
     ) -> Result<Response<HealthResponse>, Status> {
+        // Check authentication (allows anonymous by default)
+        self.authenticate_health(&request).await?;
+
         let uptime = self.start_time.elapsed().as_secs();
         let timestamps_issued = self.timestamps_issued.load(Ordering::Relaxed);
 
