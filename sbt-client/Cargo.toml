@@ -21,8 +21,12 @@ tokio = { workspace = true }
 blake3 = { workspace = true }
 
 # Networking
-tonic = { workspace = true }
+tonic = { workspace = true, features = ["tls", "tls-roots"] }
 prost = { workspace = true }
+
+# TLS
+tokio-rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }

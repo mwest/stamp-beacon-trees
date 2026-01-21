@@ -47,3 +47,20 @@ max_wait_ms = 100
 # This determines the timestamp granularity
 # 1000ms = 1 second between tree builds
 batch_interval_ms = 1000
+
+# TLS Configuration (optional - omit this section to disable TLS)
+# WARNING: Running without TLS is insecure for production use!
+#
+# [tls]
+# # Path to server certificate file (PEM format)
+# cert_path = "/etc/sbt/server.crt"
+#
+# # Path to server private key file (PEM format)
+# key_path = "/etc/sbt/server.key"
+#
+# # Path to CA certificate for client verification (optional, enables mTLS)
+# # If set, clients must present valid certificates signed by this CA
+# # ca_cert_path = "/etc/sbt/ca.crt"
+#
+# # Require client certificates (mTLS) - only applies if ca_cert_path is set
+# # require_client_cert = true

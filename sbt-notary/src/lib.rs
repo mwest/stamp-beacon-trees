@@ -8,6 +8,7 @@ pub mod config;
 pub mod grpc;
 pub mod hsm;
 pub mod server;
+pub mod tls;
 
 pub use config::NotaryConfig;
 pub use server::NotaryServer;

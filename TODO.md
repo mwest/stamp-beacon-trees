@@ -2,6 +2,7 @@
 
 ## Recently Completed ✅
 
+- [x] **Implemented TLS support** - Server and client TLS with optional mTLS. See `sbt-notary/src/tls.rs`, `sbt-client/src/tls.rs`, and CLI `--ca-cert`, `--client-cert`, `--client-key` options.
 - [x] **Implemented gRPC network protocol** - Full client/server communication using tonic/prost. See `proto/sbt.proto`, `sbt-notary/src/grpc.rs`, `sbt-client/src/grpc.rs`.
 - [x] **Fixed critical Merkle path verification bug** - The comparison was checking `computed_root != computed_root` (always false). Fixed in `sbt-core/src/verify.rs`.
 - [x] **Added domain separation to signatures** - Added `SBT-v1:` prefix to prevent cross-protocol signature reuse attacks. See `sbt-types/src/messages.rs`.
@@ -48,7 +49,7 @@
 
 #### 1.4 Remaining Network TODOs
 
-- [ ] Configure TLS/mTLS
+- [x] Configure TLS/mTLS
 - [ ] Add retry logic with exponential backoff
 - [ ] Add server public key pinning
 - [ ] End-to-end integration tests
@@ -60,18 +61,26 @@
 
 ## Security Enhancements
 
-### 2. TLS Implementation 🔒 HIGH PRIORITY
+### 2. TLS Implementation ✅ COMPLETED
 
-**Status**: Not started
-**Blocks**: Production deployment
+**Status**: Completed
+**Files created**:
+- `sbt-notary/src/tls.rs` - Server TLS configuration
+- `sbt-client/src/tls.rs` - Client TLS configuration
 
-- [ ] Generate TLS certificates for notary
-- [ ] Configure server TLS in notary
-- [ ] Configure client TLS verification
+#### 2.1 Completed
+
+- [x] Configure server TLS in notary (via `[tls]` config section)
+- [x] Configure client TLS verification (via `--ca-cert` CLI option)
+- [x] Add mTLS option for client authentication (via `--client-cert`, `--client-key`)
+- [x] Update `notary.example.toml` with TLS configuration example
+
+#### 2.2 Remaining TLS TODOs
+
+- [ ] Add certificate generation script/documentation
 - [ ] Add certificate pinning option
-- [ ] Document certificate management
-- [ ] Add mTLS option for client authentication
 - [ ] Test certificate rotation
+- [ ] Document certificate management
 
 **References**: See [SECURITY.md](SECURITY.md)
 
@@ -500,7 +509,7 @@
 - [x] Fix critical verification bug
 - [x] Add domain separation to signatures
 - [x] Network protocol implemented
-- [ ] TLS configured
+- [x] TLS configured
 - [ ] Basic authentication (API keys minimum)
 - [ ] Basic rate limiting
 - [ ] Documentation complete

@@ -26,8 +26,12 @@ pkcs11 = { workspace = true }
 cryptoki = { workspace = true }
 
 # Networking
-tonic = { workspace = true }
+tonic = { workspace = true, features = ["tls"] }
 prost = { workspace = true }
+
+# TLS
+tokio-rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
 
 # Configuration
 toml = "0.8"

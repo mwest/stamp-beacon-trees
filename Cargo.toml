@@ -39,6 +39,10 @@ cryptoki = "0.6"
 tonic = "0.12"
 prost = "0.13"
 
+# TLS
+tokio-rustls = "0.26"
+rustls-pemfile = "2.1"
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -13,6 +13,10 @@ pub struct NotaryConfig {
 
     /// Batch processing configuration
     pub batch: BatchConfig,
+
+    /// TLS configuration (optional)
+    #[serde(default)]
+    pub tls: Option<TlsConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +29,22 @@ pub struct ServerConfig {
 
     /// Maximum concurrent connections
     pub max_connections: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsConfig {
+    /// Path to server certificate file (PEM format)
+    pub cert_path: PathBuf,
+
+    /// Path to server private key file (PEM format)
+    pub key_path: PathBuf,
+
+    /// Path to CA certificate for client verification (optional, enables mTLS)
+    pub ca_cert_path: Option<PathBuf>,
+
+    /// Require client certificates (mTLS)
+    #[serde(default)]
+    pub require_client_cert: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +99,7 @@ impl Default for NotaryConfig {
                 max_wait_ms: 100,
                 batch_interval_ms: 1000,
             },
+            tls: None,
         }
     }
 }

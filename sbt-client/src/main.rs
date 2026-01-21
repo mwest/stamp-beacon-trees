@@ -3,7 +3,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use sbt_client::{ProofStorage, SbtClient};
+use sbt_client::{ProofStorage, SbtClient, TlsOptions};
 use sbt_types::Digest;
 
 #[derive(Parser)]
@@ -11,12 +11,25 @@ use sbt_types::Digest;
 #[command(about = "SBT (Stamp/Beacon Trees) timestamp client", long_about = None)]
 struct Cli {
     /// Server URL (gRPC endpoint)
+    /// Use https:// scheme for TLS connections
     #[arg(short, long, default_value = "http://localhost:8080")]
     server: String,
 
     /// Storage directory
     #[arg(short = 'd', long, default_value = ".sbt")]
     storage_dir: PathBuf,
+
+    /// Path to CA certificate file (PEM) for TLS server verification
+    #[arg(long)]
+    ca_cert: Option<PathBuf>,
+
+    /// Path to client certificate file (PEM) for mTLS authentication
+    #[arg(long)]
+    client_cert: Option<PathBuf>,
+
+    /// Path to client private key file (PEM) for mTLS authentication
+    #[arg(long)]
+    client_key: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Commands,
@@ -71,11 +84,37 @@ enum Commands {
     Health,
 }
 
+fn build_client(cli: &Cli) -> SbtClient {
+    // Check if TLS options are provided
+    let has_tls = cli.ca_cert.is_some() || cli.server.starts_with("https://");
+
+    if has_tls {
+        let mut tls_options = if let Some(ca_cert) = &cli.ca_cert {
+            TlsOptions::with_ca_cert(ca_cert.to_string_lossy().to_string())
+        } else {
+            // Use system roots for https:// URLs without explicit CA cert
+            TlsOptions::default()
+        };
+
+        // Add client certificate for mTLS if provided
+        if let (Some(cert), Some(key)) = (&cli.client_cert, &cli.client_key) {
+            tls_options = tls_options.with_client_cert(
+                cert.to_string_lossy().to_string(),
+                key.to_string_lossy().to_string(),
+            );
+        }
+
+        SbtClient::with_tls(cli.server.clone(), tls_options)
+    } else {
+        SbtClient::new(cli.server.clone())
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let mut client = SbtClient::new(cli.server.clone());
+    let mut client = build_client(&cli);
     let storage = ProofStorage::open(&cli.storage_dir)?;
 
     match cli.command {

@@ -5,6 +5,7 @@ use sbt_core::verify_proof;
 use sbt_types::{Digest, PublicKey, TimestampProof};
 
 use crate::grpc::{GrpcClient, HealthStatus};
+use crate::tls::TlsOptions;
 use crate::{ClientError, Result};
 
 /// Client for interacting with an SBT notary server
@@ -13,15 +14,28 @@ pub struct SbtClient {
     pub server_url: String,
     /// The connected gRPC client (lazily initialized)
     grpc_client: Option<GrpcClient>,
+    /// TLS options (None = no TLS)
+    tls_options: Option<TlsOptions>,
     timeout: Duration,
 }
 
 impl SbtClient {
-    /// Create a new client
+    /// Create a new client (no TLS)
     pub fn new(server_url: String) -> Self {
         Self {
             server_url,
             grpc_client: None,
+            tls_options: None,
+            timeout: Duration::from_secs(10),
+        }
+    }
+
+    /// Create a new client with TLS
+    pub fn with_tls(server_url: String, tls_options: TlsOptions) -> Self {
+        Self {
+            server_url,
+            grpc_client: None,
+            tls_options: Some(tls_options),
             timeout: Duration::from_secs(10),
         }
     }
@@ -35,7 +49,11 @@ impl SbtClient {
     /// Ensure the gRPC client is connected
     async fn ensure_connected(&mut self) -> Result<&mut GrpcClient> {
         if self.grpc_client.is_none() {
-            let client = GrpcClient::connect(&self.server_url).await?;
+            let client = if let Some(tls_options) = &self.tls_options {
+                GrpcClient::connect_with_tls(&self.server_url, tls_options).await?
+            } else {
+                GrpcClient::connect(&self.server_url).await?
+            };
             self.grpc_client = Some(client);
         }
         Ok(self.grpc_client.as_mut().unwrap())

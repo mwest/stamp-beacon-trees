@@ -1,10 +1,11 @@
 //! gRPC client implementation for communicating with SBT notary servers
 
-use tonic::transport::Channel;
+use tonic::transport::{Channel, Endpoint};
 
 use sbt_types::{Digest, Nonce, PublicKey, Signature, Timestamp as SbtTimestamp};
 use sbt_types::messages::{MerklePath, MerkleNode, TimestampProof, StampResponse};
 
+use crate::tls::{TlsOptions, load_client_tls_config};
 use crate::{ClientError, Result};
 
 // Include the generated protobuf code
@@ -21,11 +22,29 @@ pub struct GrpcClient {
 }
 
 impl GrpcClient {
-    /// Connect to a notary server
+    /// Connect to a notary server (no TLS)
     pub async fn connect(endpoint: &str) -> Result<Self> {
         let client = SbtNotaryClient::connect(endpoint.to_string())
             .await
             .map_err(|e| ClientError::Network(format!("Failed to connect: {}", e)))?;
+
+        Ok(Self { client })
+    }
+
+    /// Connect to a notary server with TLS
+    pub async fn connect_with_tls(endpoint: &str, tls_options: &TlsOptions) -> Result<Self> {
+        let tls_config = load_client_tls_config(tls_options)
+            .map_err(|e| ClientError::Network(format!("Failed to load TLS config: {}", e)))?;
+
+        let channel = Endpoint::from_shared(endpoint.to_string())
+            .map_err(|e| ClientError::Network(format!("Invalid endpoint: {}", e)))?
+            .tls_config(tls_config)
+            .map_err(|e| ClientError::Network(format!("Failed to configure TLS: {}", e)))?
+            .connect()
+            .await
+            .map_err(|e| ClientError::Network(format!("Failed to connect with TLS: {}", e)))?;
+
+        let client = SbtNotaryClient::new(channel);
 
         Ok(Self { client })
     }
@@ -60,7 +79,7 @@ impl GrpcClient {
             .into_inner();
 
         PublicKey::from_slice(&response.public_key)
-            .map_err(|e| ClientError::InvalidProof)
+            .map_err(|_| ClientError::InvalidProof)
     }
 
     /// Check server health

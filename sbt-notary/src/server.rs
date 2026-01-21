@@ -4,12 +4,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tonic::transport::Server;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::batch::{BatchProcessor, BatchRequest};
 use crate::config::NotaryConfig;
 use crate::grpc::{SbtNotaryService, proto::sbt_notary_server::SbtNotaryServer};
 use crate::hsm::HsmSigner;
+use crate::tls::load_server_tls_config;
 use sbt_types::{StampRequest, StampResponse};
 
 /// The main notary server
@@ -101,20 +102,42 @@ impl NotaryServer {
         let addr: SocketAddr = format!("{}:{}", self.config.server.host, self.config.server.port)
             .parse()?;
 
-        info!("Starting gRPC server on {}", addr);
-        info!("Public key: {}", self.public_key());
-
         // Create the gRPC service
         let service = SbtNotaryService::new(self.request_tx.clone(), self.signer.clone());
+        let sbt_service = SbtNotaryServer::new(service);
 
-        // Build and run the server
-        Server::builder()
-            .add_service(SbtNotaryServer::new(service))
-            .serve_with_shutdown(addr, async {
-                tokio::signal::ctrl_c().await.ok();
-                info!("Shutting down notary server");
-            })
-            .await?;
+        // Check if TLS is configured
+        if let Some(tls_config) = &self.config.tls {
+            info!("Starting gRPC server with TLS on {}", addr);
+            info!("Public key: {}", self.public_key());
+
+            if tls_config.ca_cert_path.is_some() {
+                info!("mTLS enabled - client certificates will be verified");
+            }
+
+            let server_tls_config = load_server_tls_config(tls_config)?;
+
+            Server::builder()
+                .tls_config(server_tls_config)?
+                .add_service(sbt_service)
+                .serve_with_shutdown(addr, async {
+                    tokio::signal::ctrl_c().await.ok();
+                    info!("Shutting down notary server");
+                })
+                .await?;
+        } else {
+            warn!("TLS is disabled - connections are not encrypted!");
+            info!("Starting gRPC server (no TLS) on {}", addr);
+            info!("Public key: {}", self.public_key());
+
+            Server::builder()
+                .add_service(sbt_service)
+                .serve_with_shutdown(addr, async {
+                    tokio::signal::ctrl_c().await.ok();
+                    info!("Shutting down notary server");
+                })
+                .await?;
+        }
 
         Ok(())
     }
