@@ -10,7 +10,7 @@ use sbt_types::Digest;
 #[command(name = "sbt")]
 #[command(about = "SBT (Stamp/Beacon Trees) timestamp client", long_about = None)]
 struct Cli {
-    /// Server URL
+    /// Server URL (gRPC endpoint)
     #[arg(short, long, default_value = "http://localhost:8080")]
     server: String,
 
@@ -66,13 +66,16 @@ enum Commands {
 
     /// Get notary's public key
     PublicKey,
+
+    /// Check server health
+    Health,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let client = SbtClient::new(cli.server);
+    let mut client = SbtClient::new(cli.server.clone());
     let storage = ProofStorage::open(&cli.storage_dir)?;
 
     match cli.command {
@@ -80,11 +83,11 @@ async fn main() -> Result<()> {
             println!("Timestamping file: {}", file.display());
 
             let proof = client.timestamp_file(&file).await?;
-            let digest = proof.digest.clone();
+            let digest = proof.digest;
 
             storage.store(&digest, &proof)?;
 
-            println!("✓ Timestamp created successfully");
+            println!("Timestamp created successfully");
             println!("Digest:    {}", digest);
             println!("Timestamp: {}", proof.leaf_timestamp());
             println!("Notary:    {}", proof.notary_pubkey);
@@ -98,11 +101,11 @@ async fn main() -> Result<()> {
             std::io::stdin().read_to_end(&mut data)?;
 
             let proof = client.timestamp_data(&data).await?;
-            let digest = proof.digest.clone();
+            let digest = proof.digest;
 
             storage.store(&digest, &proof)?;
 
-            println!("✓ Timestamp created successfully");
+            println!("Timestamp created successfully");
             println!("Digest:    {}", digest);
             println!("Timestamp: {}", proof.leaf_timestamp());
             println!("Notary:    {}", proof.notary_pubkey);
@@ -126,7 +129,7 @@ async fn main() -> Result<()> {
 
             client.verify(&proof)?;
 
-            println!("✓ Proof verified successfully");
+            println!("Proof verified successfully");
             println!("Digest:    {}", proof.digest);
             println!("Timestamp: {}", proof.leaf_timestamp());
             println!("Notary:    {}", proof.notary_pubkey);
@@ -174,7 +177,7 @@ async fn main() -> Result<()> {
 
             if let Some(output_path) = output {
                 std::fs::write(&output_path, json)?;
-                println!("✓ Proof exported to {}", output_path.display());
+                println!("Proof exported to {}", output_path.display());
             } else {
                 println!("{}", json);
             }
@@ -184,13 +187,22 @@ async fn main() -> Result<()> {
             let json = std::fs::read_to_string(&file)?;
             let digest = storage.import_json(&json)?;
 
-            println!("✓ Proof imported successfully");
+            println!("Proof imported successfully");
             println!("Digest: {}", digest);
         }
 
         Commands::PublicKey => {
-            println!("⚠ Not implemented: would query notary for public key");
-            println!("Server: {}", client.server_url);
+            let pubkey = client.get_public_key().await?;
+            println!("Notary public key: {}", pubkey);
+        }
+
+        Commands::Health => {
+            let health = client.health().await?;
+            println!("Server Health");
+            println!("=============");
+            println!("Status:            {}", if health.healthy { "Healthy" } else { "Unhealthy" });
+            println!("Uptime:            {} seconds", health.uptime_seconds);
+            println!("Timestamps issued: {}", health.timestamps_issued);
         }
     }
 

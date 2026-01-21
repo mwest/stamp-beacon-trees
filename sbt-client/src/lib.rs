@@ -3,9 +3,11 @@
 //! Client library for interacting with SBT (Stamp/Beacon Trees) notary servers
 
 pub mod client;
+pub mod grpc;
 pub mod storage;
 
 pub use client::SbtClient;
+pub use grpc::HealthStatus;
 pub use storage::ProofStorage;
 
 use thiserror::Error;

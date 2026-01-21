@@ -2,6 +2,7 @@
 
 ## Recently Completed ✅
 
+- [x] **Implemented gRPC network protocol** - Full client/server communication using tonic/prost. See `proto/sbt.proto`, `sbt-notary/src/grpc.rs`, `sbt-client/src/grpc.rs`.
 - [x] **Fixed critical Merkle path verification bug** - The comparison was checking `computed_root != computed_root` (always false). Fixed in `sbt-core/src/verify.rs`.
 - [x] **Added domain separation to signatures** - Added `SBT-v1:` prefix to prevent cross-protocol signature reuse attacks. See `sbt-types/src/messages.rs`.
 - [x] **Made `Digest` type `Copy`** - Optimized by adding `Copy` derive and removing unnecessary `.clone()` calls.
@@ -12,65 +13,48 @@
 
 ## Critical Path to MVP
 
-### 1. Network Protocol Implementation ⚠️ HIGH PRIORITY
+### 1. Network Protocol Implementation ✅ COMPLETED
 
-**Status**: Not started
-**Estimated Effort**: 1-2 days
-**Blocking**: Production deployment
+**Status**: Completed
+**Files created**:
+- `proto/sbt.proto` - Protocol buffer definitions
+- `sbt-notary/src/grpc.rs` - gRPC server implementation
+- `sbt-client/src/grpc.rs` - gRPC client implementation
+- `sbt-notary/build.rs` - Server proto build script
+- `sbt-client/build.rs` - Client proto build script
 
-#### 1.1 Define Protocol Buffer Schema
+#### 1.1 Protocol Buffer Schema ✅
 
-- [ ] Create `proto/sbt.proto` file
-- [ ] Define `StampRequest` message
-- [ ] Define `StampResponse` message
-- [ ] Define `SbtNotary` service
-- [ ] Add `GetPublicKey` RPC method
-- [ ] Add build script to generate Rust code
+- [x] Create `proto/sbt.proto` file
+- [x] Define `StampRequest` message
+- [x] Define `StampResponse` message
+- [x] Define `SbtNotary` service with `Timestamp`, `GetPublicKey`, `Health` RPCs
+- [x] Add build scripts to generate Rust code
 
-**Files to create**:
-```
-proto/
-  └── sbt.proto
-```
+#### 1.2 Server Implementation ✅
 
-#### 1.2 Implement Server (Notary)
+- [x] Implement gRPC server using `tonic`
+- [x] Add `Timestamp` RPC handler
+- [x] Add `GetPublicKey` RPC handler
+- [x] Add `Health` check endpoint
+- [x] Add request validation
+- [x] Add error handling
 
-**File**: [notary/src/server.rs](notary/src/server.rs#L53)
+#### 1.3 Client Implementation ✅
 
-- [ ] Implement gRPC server using `tonic`
-- [ ] Add `Timestamp` RPC handler
-- [ ] Add `GetPublicKey` RPC handler
+- [x] Implement gRPC client using `tonic`
+- [x] Lazy connection management
+- [x] Update CLI with `health` and `public-key` commands
+
+#### 1.4 Remaining Network TODOs
+
 - [ ] Configure TLS/mTLS
-- [ ] Add request validation
-- [ ] Add error handling
-- [ ] Add request logging
-- [ ] Add health check endpoint
-- [ ] Write integration tests
-
-**Key Location**: See TODO comment at line 53
-
-#### 1.3 Implement Client
-
-**File**: [client/src/client.rs](client/src/client.rs#L48)
-
-- [ ] Implement gRPC client using `tonic`
-- [ ] Implement `send_request()` method
 - [ ] Add retry logic with exponential backoff
-- [ ] Add timeout handling
-- [ ] Add TLS configuration
 - [ ] Add server public key pinning
-- [ ] Write integration tests
-- [ ] Update CLI to use network client
-
-**Key Location**: See TODO comment at line 48
-
-#### 1.4 Testing
-
-- [ ] End-to-end test: client → server → response
+- [ ] End-to-end integration tests
 - [ ] Test error cases (timeout, connection refused, etc.)
 - [ ] Test concurrent requests
 - [ ] Load testing (benchmark batch performance)
-- [ ] Network failure scenarios
 
 ---
 
@@ -515,7 +499,7 @@ proto/
 
 - [x] Fix critical verification bug
 - [x] Add domain separation to signatures
-- [ ] Network protocol implemented
+- [x] Network protocol implemented
 - [ ] TLS configured
 - [ ] Basic authentication (API keys minimum)
 - [ ] Basic rate limiting

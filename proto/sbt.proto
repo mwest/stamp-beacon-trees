@@ -1,0 +1,128 @@
+// SBT (Stamp/Beacon Trees) Protocol Buffer Definition
+// Protocol version: 1
+
+syntax = "proto3";
+
+package sbt;
+
+// The SBT Notary service provides timestamp operations
+service SbtNotary {
+  // Submit a digest for timestamping and receive a proof
+  rpc Timestamp(StampRequest) returns (StampResponse);
+
+  // Get the notary's public key for offline verification
+  rpc GetPublicKey(PublicKeyRequest) returns (PublicKeyResponse);
+
+  // Health check endpoint
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Request to timestamp a digest
+message StampRequest {
+  // Protocol version (must be 1)
+  uint32 version = 1;
+
+  // The 32-byte BLAKE3 digest to timestamp
+  bytes digest = 2;
+
+  // Client's send timestamp for clock sync (optional)
+  Timestamp client_send_time = 3;
+}
+
+// Response containing the timestamp proof
+message StampResponse {
+  // Protocol version
+  uint32 version = 1;
+
+  // The complete timestamp proof
+  TimestampProof proof = 2;
+
+  // Notary's send timestamp for clock sync
+  Timestamp notary_send_time = 3;
+}
+
+// A complete, self-contained timestamp proof
+message TimestampProof {
+  // The digest that was timestamped (32 bytes)
+  bytes digest = 1;
+
+  // Per-leaf nonce for uniqueness and random beacon (32 bytes)
+  bytes nonce = 2;
+
+  // Merkle path from leaf to root
+  MerklePath merkle_path = 3;
+
+  // Time delta in nanoseconds from root timestamp to this leaf
+  // Negative values mean the leaf was processed before root timestamp
+  sint64 delta_nanos = 4;
+
+  // The tree root timestamp
+  Timestamp root_timestamp = 5;
+
+  // Ed25519 signature over the tree root (64 bytes)
+  bytes signature = 6;
+
+  // Notary's Ed25519 public key (32 bytes)
+  bytes notary_pubkey = 7;
+}
+
+// Merkle path from a leaf to the root
+message MerklePath {
+  // Index of the leaf in the tree
+  uint64 leaf_index = 1;
+
+  // Sibling nodes needed to compute the root
+  repeated MerkleNode siblings = 2;
+}
+
+// A single node in the Merkle path
+message MerkleNode {
+  // The 32-byte hash of the sibling
+  bytes hash = 1;
+
+  // True if this sibling is on the left side of the path
+  bool is_left = 2;
+}
+
+// Timestamp with nanosecond precision
+message Timestamp {
+  // Seconds since Unix epoch
+  int64 seconds = 1;
+
+  // Nanoseconds (0-999,999,999)
+  uint32 nanos = 2;
+}
+
+// Request for the notary's public key
+message PublicKeyRequest {}
+
+// Response containing the notary's public key
+message PublicKeyResponse {
+  // Ed25519 public key (32 bytes)
+  bytes public_key = 1;
+
+  // Optional human-readable identifier for the notary
+  string notary_id = 2;
+}
+
+// Health check request
+message HealthRequest {}
+
+// Health check response
+message HealthResponse {
+  // Service status
+  enum Status {
+    UNKNOWN = 0;
+    HEALTHY = 1;
+    DEGRADED = 2;
+    UNHEALTHY = 3;
+  }
+
+  Status status = 1;
+
+  // Uptime in seconds
+  uint64 uptime_seconds = 2;
+
+  // Total timestamps issued since startup
+  uint64 timestamps_issued = 3;
+}

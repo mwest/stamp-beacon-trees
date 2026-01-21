@@ -2,13 +2,17 @@
 
 use std::time::Duration;
 use sbt_core::verify_proof;
-use sbt_types::{Digest, StampRequest, StampResponse, Timestamp, TimestampProof};
+use sbt_types::{Digest, PublicKey, TimestampProof};
 
+use crate::grpc::{GrpcClient, HealthStatus};
 use crate::{ClientError, Result};
 
 /// Client for interacting with an SBT notary server
 pub struct SbtClient {
-    server_url: String,
+    /// The server URL (for display purposes)
+    pub server_url: String,
+    /// The connected gRPC client (lazily initialized)
+    grpc_client: Option<GrpcClient>,
     timeout: Duration,
 }
 
@@ -17,6 +21,7 @@ impl SbtClient {
     pub fn new(server_url: String) -> Self {
         Self {
             server_url,
+            grpc_client: None,
             timeout: Duration::from_secs(10),
         }
     }
@@ -27,19 +32,19 @@ impl SbtClient {
         self
     }
 
+    /// Ensure the gRPC client is connected
+    async fn ensure_connected(&mut self) -> Result<&mut GrpcClient> {
+        if self.grpc_client.is_none() {
+            let client = GrpcClient::connect(&self.server_url).await?;
+            self.grpc_client = Some(client);
+        }
+        Ok(self.grpc_client.as_mut().unwrap())
+    }
+
     /// Submit a digest for timestamping
-    pub async fn timestamp(&self, digest: Digest) -> Result<TimestampProof> {
-        let client_send_time = Timestamp::now();
-
-        let request = StampRequest {
-            version: 1,
-            digest,
-            client_send_time,
-        };
-
-        // TODO: Implement actual network communication
-        // For now, this is a placeholder that would use gRPC/HTTP
-        let response = self.send_request(request).await?;
+    pub async fn timestamp(&mut self, digest: Digest) -> Result<TimestampProof> {
+        let client = self.ensure_connected().await?;
+        let response = client.timestamp(&digest).await?;
 
         // Verify the proof
         verify_proof(&response.proof)
@@ -49,7 +54,7 @@ impl SbtClient {
     }
 
     /// Submit a file's hash for timestamping
-    pub async fn timestamp_file(&self, path: &std::path::Path) -> Result<TimestampProof> {
+    pub async fn timestamp_file(&mut self, path: &std::path::Path) -> Result<TimestampProof> {
         let data = std::fs::read(path)
             .map_err(|e| ClientError::Storage(format!("Failed to read file: {}", e)))?;
 
@@ -58,13 +63,13 @@ impl SbtClient {
     }
 
     /// Submit arbitrary data for timestamping
-    pub async fn timestamp_data(&self, data: &[u8]) -> Result<TimestampProof> {
+    pub async fn timestamp_data(&mut self, data: &[u8]) -> Result<TimestampProof> {
         let digest = self.hash_data(data);
         self.timestamp(digest).await
     }
 
     /// Hash data using BLAKE3
-    fn hash_data(&self, data: &[u8]) -> Digest {
+    pub fn hash_data(&self, data: &[u8]) -> Digest {
         let hash = blake3::hash(data);
         Digest::new(*hash.as_bytes())
     }
@@ -76,13 +81,16 @@ impl SbtClient {
         Ok(())
     }
 
-    /// Internal method to send request to server
-    async fn send_request(&self, _request: StampRequest) -> Result<StampResponse> {
-        // TODO: Implement actual network communication
-        // This would use gRPC or HTTP to communicate with the server
-        Err(ClientError::Network(
-            "Network implementation pending".to_string(),
-        ))
+    /// Get the notary's public key
+    pub async fn get_public_key(&mut self) -> Result<PublicKey> {
+        let client = self.ensure_connected().await?;
+        client.get_public_key().await
+    }
+
+    /// Check server health
+    pub async fn health(&mut self) -> Result<HealthStatus> {
+        let client = self.ensure_connected().await?;
+        client.health().await
     }
 }
 

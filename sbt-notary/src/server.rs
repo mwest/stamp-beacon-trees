@@ -1,11 +1,14 @@
 //! Notary server implementation
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
-use tracing::{info, error};
+use tonic::transport::Server;
+use tracing::info;
 
 use crate::batch::{BatchProcessor, BatchRequest};
 use crate::config::NotaryConfig;
+use crate::grpc::{SbtNotaryService, proto::sbt_notary_server::SbtNotaryServer};
 use crate::hsm::HsmSigner;
 use sbt_types::{StampRequest, StampResponse};
 
@@ -60,7 +63,7 @@ impl NotaryServer {
         })
     }
 
-    /// Handle a stamp request
+    /// Handle a stamp request (internal API for direct calls)
     pub async fn handle_request(
         &self,
         request: StampRequest,
@@ -93,19 +96,25 @@ impl NotaryServer {
         self.signer.public_key()
     }
 
-    /// Run the server
-    /// This is a placeholder - actual implementation would set up gRPC/HTTP server
+    /// Run the gRPC server
     pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
-        info!(
-            "Notary server running on {}:{}",
-            self.config.server.host, self.config.server.port
-        );
+        let addr: SocketAddr = format!("{}:{}", self.config.server.host, self.config.server.port)
+            .parse()?;
+
+        info!("Starting gRPC server on {}", addr);
         info!("Public key: {}", self.public_key());
 
-        // TODO: Implement actual network server (gRPC, HTTP, etc.)
-        // For now, just keep the server alive
-        tokio::signal::ctrl_c().await?;
-        info!("Shutting down notary server");
+        // Create the gRPC service
+        let service = SbtNotaryService::new(self.request_tx.clone(), self.signer.clone());
+
+        // Build and run the server
+        Server::builder()
+            .add_service(SbtNotaryServer::new(service))
+            .serve_with_shutdown(addr, async {
+                tokio::signal::ctrl_c().await.ok();
+                info!("Shutting down notary server");
+            })
+            .await?;
 
         Ok(())
     }
