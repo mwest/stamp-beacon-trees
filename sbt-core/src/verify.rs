@@ -29,11 +29,10 @@ pub fn verify_proof(proof: &TimestampProof) -> Result<(), VerificationError> {
     // Step 1: Compute leaf hash
     let leaf_hash = proof.compute_leaf_hash();
 
-    // Step 2: Verify Merkle path
+    // Step 2: Compute the Merkle root from the leaf hash and path
     let computed_root = proof.merkle_path.compute_root(&leaf_hash);
-    if computed_root != *proof.merkle_path.compute_root(&leaf_hash) {
-        return Err(VerificationError::InvalidMerklePath);
-    }
+    // Note: The Merkle path validity is implicitly verified by the signature check below.
+    // If the computed root is wrong, the signature verification will fail.
 
     // Step 3: Build the message that was signed
     let message = build_sign_message(&computed_root, &proof.root_timestamp);

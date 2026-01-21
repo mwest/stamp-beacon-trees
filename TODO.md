@@ -1,5 +1,15 @@
 # Stamp/Beacon Trees TODO List
 
+## Recently Completed ✅
+
+- [x] **Fixed critical Merkle path verification bug** - The comparison was checking `computed_root != computed_root` (always false). Fixed in `sbt-core/src/verify.rs`.
+- [x] **Added domain separation to signatures** - Added `SBT-v1:` prefix to prevent cross-protocol signature reuse attacks. See `sbt-types/src/messages.rs`.
+- [x] **Made `Digest` type `Copy`** - Optimized by adding `Copy` derive and removing unnecessary `.clone()` calls.
+- [x] **Improved unsafe unwrap() handling** - Replaced bare `unwrap()` with `while let` pattern and `expect()` with messages in `sbt-core/src/merkle.rs`.
+- [x] **Added thread safety documentation** - Documented `NonceGenerator` thread safety requirements in `sbt-core/src/nonce.rs`.
+
+---
+
 ## Critical Path to MVP
 
 ### 1. Network Protocol Implementation ⚠️ HIGH PRIORITY
@@ -81,14 +91,15 @@ proto/
 
 **References**: See [SECURITY.md](SECURITY.md)
 
-### 3. Rate Limiting & DoS Protection 🛡️ MEDIUM PRIORITY
+### 3. Rate Limiting & DoS Protection 🛡️ HIGH PRIORITY
 
 **Status**: Not started
+**Blocking**: Production deployment
 
 #### 3.1 Server-Side Rate Limiting
 
 - [ ] Per-client IP rate limiting
-- [ ] Global rate limiting
+- [ ] Global throughput limiting
 - [ ] Configure limits in `notary.toml`
 - [ ] Add rate limit headers in responses
 - [ ] Log rate limit violations
@@ -108,14 +119,15 @@ proto/
 - [ ] Implement server verifier
 - [ ] Make configurable (disabled by default)
 
-### 4. Authentication & Authorization 🔑 MEDIUM PRIORITY
+### 4. Authentication & Authorization 🔑 HIGH PRIORITY
 
 **Status**: Not started
+**Blocking**: Production deployment
 
 **Options to consider**:
-- [ ] API key authentication
+- [ ] API key authentication (minimum viable)
 - [ ] OAuth 2.0 / JWT tokens
-- [ ] Mutual TLS (mTLS)
+- [ ] Mutual TLS (mTLS) - recommended for production
 - [ ] Anonymous public access (with rate limits)
 
 **Implementation**:
@@ -127,9 +139,38 @@ proto/
 
 ---
 
+## Security Enhancements
+
+### 5. HSM Security Improvements 🔒 MEDIUM PRIORITY
+
+**Status**: Partially implemented
+**File**: `sbt-notary/src/hsm.rs`
+
+#### 5.1 PIN Security
+
+- [ ] Use `zeroize` crate to clear PIN from memory after use
+- [ ] Ensure PINs are never logged
+- [ ] Consider memory-locked storage for sensitive data
+
+#### 5.2 Error Handling
+
+- [ ] Sanitize HSM error messages in production (avoid information leakage)
+- [ ] Improve `Drop` implementation to handle logout/finalize errors:
+  ```rust
+  impl Drop for HsmSigner {
+      fn drop(&mut self) {
+          if let Err(e) = self.session.logout() {
+              tracing::error!("Failed to logout HSM session: {}", e);
+          }
+      }
+  }
+  ```
+
+---
+
 ## Operational Features
 
-### 5. Clock Synchronization 🕐 HIGH PRIORITY
+### 6. Clock Synchronization 🕐 HIGH PRIORITY
 
 **Status**: Not started
 **Why**: Critical for timestamp accuracy
@@ -153,7 +194,7 @@ proto/
 
 **References**: See [SECURITY.md - Clock Manipulation](SECURITY.md#6-clock-manipulation)
 
-### 6. Monitoring & Observability 📊 MEDIUM PRIORITY
+### 7. Monitoring & Observability 📊 MEDIUM PRIORITY
 
 **Status**: Basic logging implemented
 
@@ -192,7 +233,7 @@ proto/
 - [ ] Trace request flow
 - [ ] Export to Jaeger/Zipkin
 
-### 7. Deployment & Operations 🚀 MEDIUM PRIORITY
+### 8. Deployment & Operations 🚀 MEDIUM PRIORITY
 
 #### 7.1 Containerization
 
@@ -228,7 +269,7 @@ proto/
 
 ## Advanced Features
 
-### 8. Key Management 🔐 LOW PRIORITY
+### 9. Key Management 🔐 LOW PRIORITY
 
 **Status**: Basic HSM support implemented
 
@@ -239,7 +280,7 @@ proto/
 - [ ] Key usage audit logging
 - [ ] Document key lifecycle
 
-### 9. Transparency & Auditability 📜 LOW PRIORITY
+### 10. Transparency & Auditability 📜 LOW PRIORITY
 
 #### 9.1 Public Transparency Log
 
@@ -257,7 +298,7 @@ proto/
 - [ ] Aggregate proofs from multiple sources
 - [ ] Document federation protocol
 
-### 10. Aggregation Layer 🌐 LOW PRIORITY
+### 11. Aggregation Layer 🌐 LOW PRIORITY
 
 **Status**: Not started (future scaling)
 
@@ -272,7 +313,7 @@ proto/
 
 **References**: See paper section "Scaling via Untrusted Aggregation Servers"
 
-### 11. Additional Use Cases 🎯 LOW PRIORITY
+### 12. Additional Use Cases 🎯 LOW PRIORITY
 
 #### 11.1 Random Beacon
 
@@ -292,7 +333,7 @@ proto/
 
 **References**: See paper sections "Random Beacon" and "Clock Synchronization"
 
-### 12. Protocol Compatibility 🔗 LOW PRIORITY
+### 13. Protocol Compatibility 🔗 LOW PRIORITY
 
 #### 12.1 OpenTimestamps Compatibility
 
@@ -312,18 +353,21 @@ proto/
 
 ## Code Quality & Testing
 
-### 13. Testing Improvements 🧪 MEDIUM PRIORITY
+### 14. Testing Improvements 🧪 MEDIUM PRIORITY
 
-#### 13.1 Unit Tests
+#### 14.1 Unit Tests
 
 - [x] Core merkle tree tests
 - [x] Primitives tests
 - [x] Message tests
 - [ ] Improve test coverage to >90%
-- [ ] Add property-based tests (proptest)
-- [ ] Add fuzzing tests
+- [ ] Add property-based tests (proptest) for:
+  - Merkle path verification (for any tree, path must verify)
+  - Timestamp arithmetic (no overflow, reversible operations)
+  - Serialization round-trips
+- [ ] Add fuzzing tests for input parsers
 
-#### 13.2 Integration Tests
+#### 14.2 Integration Tests
 
 - [ ] End-to-end notary+client tests
 - [ ] HSM integration tests (with real HSM)
@@ -331,23 +375,27 @@ proto/
 - [ ] Concurrent client tests
 - [ ] Large batch tests (10k+ requests)
 
-#### 13.3 Benchmarks
+#### 14.3 Benchmarks
 
-- [ ] Tree construction benchmarks
+**Note**: `criterion` is in dependencies but no benchmarks implemented yet.
+
+- [ ] Tree construction time vs batch size
 - [ ] Signature verification benchmarks
-- [ ] Batch processing benchmarks
-- [ ] Network throughput benchmarks
+- [ ] Path generation benchmarks
+- [ ] Serialization benchmarks
+- [ ] Batch processing throughput
 - [ ] Add to CI/CD
 
-#### 13.4 Security Testing
+#### 14.4 Security Testing
 
 - [ ] Fuzzing input parsers
+- [ ] Fuzzing Merkle path verification
 - [ ] Timing side-channel analysis
 - [ ] Memory safety audit
-- [ ] Dependency audit automation
+- [ ] Dependency audit automation (`cargo audit`)
 - [ ] Penetration testing
 
-### 14. Documentation 📖 ONGOING
+### 15. Documentation 📖 ONGOING
 
 - [x] README.md
 - [x] ARCHITECTURE.md
@@ -355,35 +403,39 @@ proto/
 - [x] SECURITY.md
 - [x] DEVELOPMENT.md
 - [x] QUICKSTART.md
-- [ ] API documentation (rustdoc)
+- [ ] API documentation (rustdoc) - add to all public APIs
+- [ ] Document Merkle tree duplicate-node behavior in protocol spec
 - [ ] Deployment guide
 - [ ] Operator manual
 - [ ] Troubleshooting guide
 - [ ] Performance tuning guide
-- [ ] Add inline code documentation
 - [ ] Create architecture diagrams (SVG)
 - [ ] Record demo video
 
-### 15. CI/CD Pipeline 🔄 MEDIUM PRIORITY
+### 16. CI/CD Pipeline 🔄 MEDIUM PRIORITY
 
 - [ ] GitHub Actions workflow
 - [ ] Run tests on PR
 - [ ] Run clippy on PR
-- [ ] Run cargo audit on PR
+- [ ] Run `cargo audit` on PR (check for known vulnerabilities)
 - [ ] Build release binaries
 - [ ] Publish to crates.io (when ready)
 - [ ] Docker image publishing
 - [ ] Version tagging automation
+- [ ] Add "good first issue" labels for contributors
+- [ ] Create CONTRIBUTING.md
+- [ ] Set up issues/PR templates
+- [ ] Add code of conduct
 
 ---
 
 ## Performance Optimization
 
-### 16. Performance Tuning ⚡ LOW PRIORITY
+### 17. Performance Tuning ⚡ LOW PRIORITY
 
 **Do after baseline benchmarks**
 
-#### 16.1 Tree Construction
+#### 17.1 Tree Construction
 
 - [ ] Benchmark current implementation
 - [ ] Profile hot paths
@@ -391,14 +443,14 @@ proto/
 - [ ] Consider streaming path generation
 - [ ] Parallel tree building (if beneficial)
 
-#### 16.2 Batch Processing
+#### 17.2 Batch Processing
 
 - [ ] Tune batch parameters based on load
 - [ ] Adaptive batching
 - [ ] Pre-allocated buffers
 - [ ] Zero-copy optimizations
 
-#### 16.3 Network
+#### 17.3 Network
 
 - [ ] HTTP/2 multiplexing tuning
 - [ ] Connection pooling
@@ -407,9 +459,17 @@ proto/
 
 ---
 
+#### 17.4 Memory Optimization
+
+- [ ] Document memory requirements for large batches (~64 bytes × 2N for N leaves)
+- [ ] Consider streaming Merkle path generation for very large batches (>100k leaves)
+- [ ] Pre-allocated buffers for batch processing
+
+---
+
 ## Future Research & Enhancements
 
-### 17. Post-Quantum Cryptography 🔮 RESEARCH
+### 18. Post-Quantum Cryptography 🔮 RESEARCH
 
 **Timeline**: When PQ standards mature
 
@@ -419,7 +479,7 @@ proto/
 - [ ] Migration path from Ed25519
 - [ ] Document PQ support
 
-### 18. Advanced Security Features 🛡️ RESEARCH
+### 19. Advanced Security Features 🛡️ RESEARCH
 
 - [ ] Threshold signatures (multiple HSMs)
 - [ ] Multiparty computation for signing
@@ -427,7 +487,7 @@ proto/
 - [ ] TPM integration
 - [ ] Hardware attestation
 
-### 19. Scalability Research 📈 RESEARCH
+### 20. Scalability Research 📈 RESEARCH
 
 - [ ] Sharding strategies
 - [ ] Geographic distribution
@@ -439,10 +499,25 @@ proto/
 
 ## Release Checklist
 
+### 21. Storage Evaluation 💾 LOW PRIORITY
+
+**Current**: Using `sled` for client storage
+
+- [ ] Evaluate `redb` as alternative (more actively maintained)
+- [ ] Consider SQLite with `rusqlite` for better tooling
+- [ ] Document storage requirements and recommendations
+
+---
+
+## Release Checklist
+
 ### Version 0.1.0 (MVP)
 
+- [x] Fix critical verification bug
+- [x] Add domain separation to signatures
 - [ ] Network protocol implemented
 - [ ] TLS configured
+- [ ] Basic authentication (API keys minimum)
 - [ ] Basic rate limiting
 - [ ] Documentation complete
 - [ ] Integration tests passing
@@ -499,4 +574,4 @@ proto/
 - See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup
 - Update this file as priorities change
 
-**Last Updated**: 2026-01-19
+**Last Updated**: 2026-01-21

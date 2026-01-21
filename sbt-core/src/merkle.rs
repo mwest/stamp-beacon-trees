@@ -82,7 +82,7 @@ impl StampTree {
             if sibling_index < level_size {
                 let is_left = sibling_index < index;
                 siblings.push(MerkleNode {
-                    hash: self.levels[level][sibling_index].clone(),
+                    hash: self.levels[level][sibling_index],
                     is_left,
                 });
             }
@@ -125,7 +125,7 @@ impl StampTreeBuilder {
             let zero_hash = Digest::new([0u8; 32]);
             return StampTree {
                 leaves: self.leaves,
-                root_hash: zero_hash.clone(),
+                root_hash: zero_hash,
                 root_timestamp,
                 levels: vec![vec![zero_hash]],
             };
@@ -134,8 +134,10 @@ impl StampTreeBuilder {
         levels.push(leaf_hashes);
 
         // Build up the tree level by level
-        while levels.last().unwrap().len() > 1 {
-            let prev_level = levels.last().unwrap();
+        while let Some(prev_level) = levels.last() {
+            if prev_level.len() <= 1 {
+                break;
+            }
             let mut next_level = Vec::new();
 
             for i in (0..prev_level.len()).step_by(2) {
@@ -152,7 +154,8 @@ impl StampTreeBuilder {
             levels.push(next_level);
         }
 
-        let root_hash = levels.last().unwrap()[0].clone();
+        // Safe: levels is guaranteed non-empty (we pushed leaf_hashes above)
+        let root_hash = levels.last().expect("levels must be non-empty")[0];
 
         StampTree {
             leaves: self.leaves,

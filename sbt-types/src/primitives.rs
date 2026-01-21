@@ -6,7 +6,7 @@ use std::fmt;
 
 /// A cryptographic digest (hash output)
 /// Using BLAKE3 as the primary hash function (32 bytes)
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Digest([u8; 32]);
 
 impl Digest {

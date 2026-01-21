@@ -86,7 +86,7 @@ pub struct MerkleNode {
 impl MerklePath {
     /// Compute the Merkle root from a leaf hash
     pub fn compute_root(&self, leaf_hash: &Digest) -> Digest {
-        let mut current = leaf_hash.clone();
+        let mut current = *leaf_hash;
 
         for sibling in &self.siblings {
             current = if sibling.is_left {
@@ -118,10 +118,15 @@ pub fn hash_pair(left: &Digest, right: &Digest) -> Digest {
     Digest::new(*hash.as_bytes())
 }
 
+/// Domain separation prefix for signature messages.
+/// This prevents cross-protocol signature reuse attacks.
+pub const SIGN_MESSAGE_PREFIX: &[u8] = b"SBT-v1:";
+
 /// Build a message to be signed by the notary
-/// Message format: root_hash || timestamp_seconds || timestamp_nanos
+/// Message format: "SBT-v1:" || root_hash || timestamp_seconds || timestamp_nanos
 pub fn build_sign_message(root_hash: &Digest, timestamp: &Timestamp) -> Vec<u8> {
-    let mut msg = Vec::with_capacity(32 + 8 + 4);
+    let mut msg = Vec::with_capacity(SIGN_MESSAGE_PREFIX.len() + 32 + 8 + 4);
+    msg.extend_from_slice(SIGN_MESSAGE_PREFIX);
     msg.extend_from_slice(root_hash.as_bytes());
     msg.extend_from_slice(&timestamp.seconds.to_be_bytes());
     msg.extend_from_slice(&timestamp.nanos.to_be_bytes());
@@ -160,7 +165,7 @@ mod tests {
         let path = MerklePath {
             leaf_index: 0,
             siblings: vec![MerkleNode {
-                hash: leaf1.clone(),
+                hash: leaf1,
                 is_left: false,
             }],
         };
