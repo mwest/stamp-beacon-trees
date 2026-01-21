@@ -1,6 +1,6 @@
-# Stamp/Beacon Trees Quick Start Guide
+# SBT Quick Start Guide
 
-Get up and running with Stamp/Beacon Trees timestamping in 5 minutes.
+Get up and running with SBT (Stamp/Beacon Trees) timestamping in 5 minutes.
 
 ## Prerequisites
 
@@ -10,15 +10,15 @@ Get up and running with Stamp/Beacon Trees timestamping in 5 minutes.
 ## Installation
 
 ```bash
-# Clone repository (when published)
-git clone https://github.com/yourusername/Stamp/Beacon Trees.git
-cd Stamp/Beacon Trees
+# Clone repository
+git clone https://github.com/mwest/stamp-beacon-trees.git
+cd stamp-beacon-trees
 
 # Build all crates
 cargo build --release
 
 # Binaries will be in target/release/
-ls target/release/Stamp/Beacon Trees*
+ls target/release/sbt*
 ```
 
 ## Setup: Development Notary
@@ -43,7 +43,7 @@ brew install softhsm
 # Create token
 softhsm2-util --init-token \
   --slot 0 \
-  --label "Stamp/Beacon Trees-dev" \
+  --label "sbt-dev" \
   --pin 1234 \
   --so-pin 5678
 
@@ -63,14 +63,14 @@ pkcs11-tool --module /usr/lib/softhsm/libsofthsm2.so \
   --login --pin 1234 \
   --keypairgen \
   --key-type EC:edwards25519 \
-  --label "Stamp/Beacon Trees-notary-key"
+  --label "sbt-notary-key"
 
 # OR for testing with RSA (if Ed25519 not available)
 pkcs11-tool --module /usr/lib/softhsm/libsofthsm2.so \
   --login --pin 1234 \
   --keypairgen \
   --key-type RSA:2048 \
-  --label "Stamp/Beacon Trees-notary-key"
+  --label "sbt-notary-key"
 ```
 
 ### 4. Configure Notary
@@ -81,7 +81,7 @@ cp notary.example.toml notary.toml
 
 # Edit notary.toml:
 # - Verify pkcs11_library path
-# - Set key_label = "Stamp/Beacon Trees-notary-key"
+# - Set key_label = "sbt-notary-key"
 # - Set slot_id = 0
 ```
 
@@ -95,7 +95,7 @@ max_connections = 100
 [hsm]
 pkcs11_library = "/usr/lib/softhsm/libsofthsm2.so"
 slot_id = 0
-key_label = "Stamp/Beacon Trees-notary-key"
+key_label = "sbt-notary-key"
 
 [batch]
 max_batch_size = 100
@@ -106,18 +106,18 @@ batch_interval_ms = 1000
 ### 5. Set HSM PIN
 
 ```bash
-export Stamp/Beacon Trees_HSM_PIN="1234"
+export SBT_HSM_PIN="1234"
 ```
 
 ### 6. Run Notary Server
 
 ```bash
-cargo run --release -p Stamp/Beacon Trees-notary
+cargo run --release -p sbt-notary
 
 # Should see:
-# INFO Stamp/Beacon Trees_notary: Initializing notary server
-# INFO Stamp/Beacon Trees_notary: HSM signer initialized, public key: abc123...
-# INFO Stamp/Beacon Trees_notary: Notary server running on 127.0.0.1:8080
+# INFO sbt_notary: Initializing notary server
+# INFO sbt_notary: HSM signer initialized, public key: abc123...
+# INFO sbt_notary: Notary server running on 127.0.0.1:8080
 ```
 
 **Note**: Currently the server doesn't accept network requests (network layer TODO). You can test using the library API directly.
@@ -131,8 +131,8 @@ Since the network layer isn't implemented yet, here's how to use the core librar
 Create `examples/my_timestamp.rs`:
 
 ```rust
-use Stamp/Beacon Trees_core::{LeafData, NonceGenerator, StampTreeBuilder};
-use Stamp/Beacon Trees_types::{Digest, Timestamp};
+use sbt_core::{LeafData, NonceGenerator, StampTreeBuilder};
+use sbt_types::{Digest, Timestamp};
 
 fn main() {
     // 1. Hash your data
@@ -174,8 +174,8 @@ cargo run --example my_timestamp
 ### Verify a Proof
 
 ```rust
-use Stamp/Beacon Trees_core::verify_proof;
-use Stamp/Beacon Trees_types::TimestampProof;
+use sbt_core::verify_proof;
+use sbt_types::TimestampProof;
 
 fn verify_example(proof: TimestampProof) {
     match verify_proof(&proof) {
@@ -212,7 +212,7 @@ cargo run --example basic_usage
 
 Expected output:
 ```
-Stamp/Beacon Trees Stamp/Beacon Tree Example
+SBT (Stamp/Beacon Trees) Example
 =================================
 
 Data to timestamp:
@@ -247,9 +247,9 @@ Merkle Paths:
 ### For Development
 
 1. **Explore the code**:
-   - Start with [types/src/messages.rs](types/src/messages.rs) for protocol
-   - Look at [core/src/merkle.rs](core/src/merkle.rs) for tree construction
-   - Check [notary/src/batch.rs](notary/src/batch.rs) for batching logic
+   - Start with [sbt-types/src/messages.rs](sbt-types/src/messages.rs) for protocol
+   - Look at [sbt-core/src/merkle.rs](sbt-core/src/merkle.rs) for tree construction
+   - Check [sbt-notary/src/batch.rs](sbt-notary/src/batch.rs) for batching logic
 
 2. **Read documentation**:
    - [ARCHITECTURE.md](ARCHITECTURE.md) - System design
@@ -257,8 +257,8 @@ Merkle Paths:
    - [DEVELOPMENT.md](DEVELOPMENT.md) - Developer guide
 
 3. **Implement networking**:
-   - Add gRPC server to [notary/src/server.rs](notary/src/server.rs)
-   - Add gRPC client to [client/src/client.rs](client/src/client.rs)
+   - Add gRPC server to [sbt-notary/src/server.rs](sbt-notary/src/server.rs)
+   - Add gRPC client to [sbt-client/src/client.rs](sbt-client/src/client.rs)
    - See TODO comments in code
 
 ### For Production
@@ -313,12 +313,12 @@ pkcs11-tool --module /usr/lib/softhsm/libsofthsm2.so \
 
 Set environment variable:
 ```bash
-export Stamp/Beacon Trees_HSM_PIN="your-pin"
+export SBT_HSM_PIN="your-pin"
 ```
 
 Or add to shell profile:
 ```bash
-echo 'export Stamp/Beacon Trees_HSM_PIN="1234"' >> ~/.bashrc
+echo 'export SBT_HSM_PIN="1234"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -343,7 +343,7 @@ make build              # or: cargo build
 make test              # or: cargo test --workspace
 
 # Run notary
-make run-notary        # or: cargo run -p Stamp/Beacon Trees-notary
+make run-notary        # or: cargo run -p sbt-notary
 
 # Run example
 make example           # or: cargo run --example basic_usage
@@ -358,13 +358,13 @@ make lint              # or: cargo clippy --workspace
 ### File Locations
 
 - Notary config: `notary.toml`
-- Client storage: `.Stamp/Beacon Trees/` (default)
+- Client storage: `.sbt/` (default)
 - Logs: stdout (configure with RUST_LOG)
 - HSM: `/usr/lib/softhsm/libsofthsm2.so` (typical)
 
 ### Environment Variables
 
-- `Stamp/Beacon Trees_HSM_PIN`: HSM PIN (required)
+- `SBT_HSM_PIN`: HSM PIN (required)
 - `RUST_LOG`: Log level (debug, info, warn, error)
 
 ## Getting Help
@@ -387,7 +387,7 @@ The current implementation has everything except network communication:
 7. **Network protocol**: ⚠️ TODO
 
 To make it production-ready, implement the network layer following the placeholders in:
-- [notary/src/server.rs](notary/src/server.rs)
-- [client/src/client.rs](client/src/client.rs)
+- [sbt-notary/src/server.rs](sbt-notary/src/server.rs)
+- [sbt-client/src/client.rs](sbt-client/src/client.rs)
 
 Happy timestamping! 🕐

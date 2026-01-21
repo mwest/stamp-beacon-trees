@@ -1,10 +1,10 @@
-# Stamp/Beacon Trees
+# SBT (Stamp/Beacon Trees)
 
 A Rust implementation of Stamp/Beacon Trees for secure, precise, trusted timestamping.
 
 ## Overview
 
-Stamp/Beacon Trees is a cryptographic timestamping system based on the Stamp/Beacon Tree construction. It provides:
+SBT is a cryptographic timestamping system based on the Stamp/Beacon Tree construction. It provides:
 
 - **Trusted Timestamping**: Cryptographic proof that data existed at a specific time
 - **High Precision**: Nanosecond-level timing precision with per-leaf delta times
@@ -16,21 +16,21 @@ Stamp/Beacon Trees is a cryptographic timestamping system based on the Stamp/Bea
 
 The project is organized as a Cargo workspace with four main crates:
 
-### 1. `Stamp/Beacon Trees-types`
+### 1. `sbt-types`
 Core protocol definitions and data structures:
 - Cryptographic primitives (Digest, Signature, PublicKey, Nonce)
 - Protocol messages (StampRequest, StampResponse)
 - Timestamp proofs and Merkle paths
 - Zero I/O dependencies
 
-### 2. `Stamp/Beacon Trees-core`
+### 2. `sbt-core`
 Cryptographic and tree construction logic:
 - Merkle tree builder with per-leaf timing deltas
 - Proof verification
 - Nonce generation
 - Pure crypto operations, no network/storage dependencies
 
-### 3. `Stamp/Beacon Trees-notary`
+### 3. `sbt-notary`
 The trusted timestamping server:
 - Receives client timestamp requests
 - Builds stamp/beacon trees with precise timing
@@ -38,7 +38,7 @@ The trusted timestamping server:
 - Batch processing for scalability
 - Current state storage (no historical archive)
 
-### 4. `Stamp/Beacon Trees-client`
+### 4. `sbt-client`
 Client library and CLI tool:
 - Submit files/data for timestamping
 - Verify timestamp proofs
@@ -62,8 +62,8 @@ Client library and CLI tool:
 cargo build --release
 
 # Build specific crate
-cargo build -p Stamp/Beacon Trees-notary --release
-cargo build -p Stamp/Beacon Trees-client --release
+cargo build -p sbt-notary --release
+cargo build -p sbt-client --release
 ```
 
 ### Running Tests
@@ -73,7 +73,7 @@ cargo build -p Stamp/Beacon Trees-client --release
 cargo test --workspace
 
 # Run tests for specific crate
-cargo test -p Stamp/Beacon Trees-core
+cargo test -p sbt-core
 ```
 
 ## Usage
@@ -88,7 +88,7 @@ cargo test -p Stamp/Beacon Trees-core
 
 ```bash
 # Generate default config
-Stamp/Beacon Trees-notary
+sbt-notary
 
 # This creates notary.toml - edit it with your HSM settings
 ```
@@ -104,7 +104,7 @@ max_connections = 1000
 [hsm]
 pkcs11_library = "/usr/lib/softhsm/libsofthsm2.so"
 slot_id = 0
-key_label = "Stamp/Beacon Trees-notary-key"
+key_label = "sbt-notary-key"
 
 [batch]
 max_batch_size = 1000
@@ -115,13 +115,13 @@ batch_interval_ms = 1000
 3. **Set HSM PIN**:
 
 ```bash
-export Stamp/Beacon Trees_HSM_PIN="your-hsm-pin"
+export SBT_HSM_PIN="your-hsm-pin"
 ```
 
 4. **Run server**:
 
 ```bash
-Stamp/Beacon Trees-notary notary.toml
+sbt-notary notary.toml
 ```
 
 ### Client
@@ -129,39 +129,39 @@ Stamp/Beacon Trees-notary notary.toml
 **Timestamp a file**:
 
 ```bash
-Stamp/Beacon Trees timestamp document.pdf
+sbt timestamp document.pdf
 ```
 
 **Verify a timestamp**:
 
 ```bash
 # By digest
-Stamp/Beacon Trees verify abc123...
+sbt verify abc123...
 
 # By file
-Stamp/Beacon Trees verify document.pdf
+sbt verify document.pdf
 ```
 
 **List stored proofs**:
 
 ```bash
-Stamp/Beacon Trees list
+sbt list
 ```
 
 **Show proof details**:
 
 ```bash
-Stamp/Beacon Trees show abc123...
+sbt show abc123...
 ```
 
 **Export/Import proofs**:
 
 ```bash
 # Export to JSON
-Stamp/Beacon Trees export abc123... -o proof.json
+sbt export abc123... -o proof.json
 
 # Import from JSON
-Stamp/Beacon Trees import proof.json
+sbt import proof.json
 ```
 
 ## How It Works

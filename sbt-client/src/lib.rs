@@ -1,6 +1,6 @@
-//! Stamp/Beacon Trees Client Library
+//! SBT Client Library
 //!
-//! Client library for interacting with Stamp/Beacon Trees notary servers
+//! Client library for interacting with SBT (Stamp/Beacon Trees) notary servers
 
 pub mod client;
 pub mod storage;

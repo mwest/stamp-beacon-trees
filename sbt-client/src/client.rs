@@ -6,7 +6,7 @@ use sbt_types::{Digest, StampRequest, StampResponse, Timestamp, TimestampProof};
 
 use crate::{ClientError, Result};
 
-/// Client for interacting with a Stamp/Beacon Trees notary server
+/// Client for interacting with an SBT notary server
 pub struct SbtClient {
     server_url: String,
     timeout: Duration,
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_hash_data() {
-        let client = Stamp/Beacon TreesClient::new("http://localhost:8080".to_string());
+        let client = SbtClient::new("http://localhost:8080".to_string());
         let data = b"test data";
         let digest1 = client.hash_data(data);
         let digest2 = client.hash_data(data);

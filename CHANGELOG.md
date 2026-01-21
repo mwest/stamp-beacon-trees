@@ -9,27 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### Stamp/Beacon Trees-types (v0.1.0)
+#### sbt-types (v0.1.0)
 - Core cryptographic primitives: Digest, Signature, PublicKey, Nonce, Timestamp
 - Protocol message definitions: StampRequest, StampResponse, TimestampProof
 - Merkle path structures and computation
 - Error types for the protocol
 
-#### Stamp/Beacon Trees-core (v0.1.0)
-- Stamp/Beacon tree construction with per-leaf timing deltas
+#### sbt-core (v0.1.0)
+- Stamp/beacon tree construction with per-leaf timing deltas
 - Merkle path generation
 - Cryptographic nonce generation
 - Ed25519 signature verification
 - Timestamp proof verification
 
-#### Stamp/Beacon Trees-notary (v0.1.0)
+#### sbt-notary (v0.1.0)
 - Batch processing of timestamp requests
 - PKCS#11 HSM integration for Ed25519 signing
 - Configurable batch parameters (size, intervals)
 - TOML-based configuration
 - Logging and observability hooks
 
-#### Stamp/Beacon Trees-client (v0.1.0)
+#### sbt-client (v0.1.0)
 - Client library for timestamp operations
 - Local proof storage using embedded database
 - CLI tool with commands:
@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - TBD
 
-Initial implementation of Stamp/Beacon Trees protocol.
+Initial implementation of SBT (Stamp/Beacon Trees) protocol.
 
-[Unreleased]: https://github.com/yourusername/Stamp/Beacon Trees/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/yourusername/Stamp/Beacon Trees/releases/tag/v0.1.0
+[Unreleased]: https://github.com/mwest/stamp-beacon-trees/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/mwest/stamp-beacon-trees/releases/tag/v0.1.0

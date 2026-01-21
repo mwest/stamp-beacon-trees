@@ -1,4 +1,4 @@
-# Stamp/Beacon Trees Architecture
+# SBT Architecture
 
 ## System Overview
 
@@ -13,7 +13,7 @@
          │ StampResponse
          ▼
 ┌─────────────────┐
-│ Stamp/Beacon Trees-client   │
+│ sbt-client          │
 │  ┌───────────┐  │
 │  │  Client   │  │  - Network communication
 │  │  Library  │  │  - Proof verification
@@ -28,7 +28,7 @@
          │
          ▼
 ┌─────────────────────────────────┐
-│     Stamp/Beacon Trees-notary               │
+│     sbt-notary                      │
 │  ┌────────────────────────┐     │
 │  │  Server                │     │
 │  │  - Request handling    │     │
@@ -61,13 +61,13 @@
 ## Crate Dependencies
 
 ```
-Stamp/Beacon Trees-types (no dependencies)
+sbt-types (no dependencies)
     ↑
-    ├─── Stamp/Beacon Trees-core
+    ├─── sbt-core
     │       ↑
-    │       ├─── Stamp/Beacon Trees-notary
+    │       ├─── sbt-notary
     │       │
-    │       └─── Stamp/Beacon Trees-client
+    │       └─── sbt-client
     │
     └─── (shared by both)
 ```
@@ -283,7 +283,7 @@ Local Database (sled):
 │     ...            │
 └────────────────────┘
 
-Directory: .Stamp/Beacon Trees/ (configurable)
+Directory: .sbt/ (configurable)
 ```
 
 ## Configuration Flow

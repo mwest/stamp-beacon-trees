@@ -1,4 +1,4 @@
-# Stamp/Beacon Trees TODO List
+# SBT (Stamp/Beacon Trees) TODO List
 
 ## Recently Completed ✅
 
@@ -20,17 +20,17 @@
 
 #### 1.1 Define Protocol Buffer Schema
 
-- [ ] Create `proto/Stamp/Beacon Trees.proto` file
+- [ ] Create `proto/sbt.proto` file
 - [ ] Define `StampRequest` message
 - [ ] Define `StampResponse` message
-- [ ] Define `Stamp/Beacon TreesNotary` service
+- [ ] Define `SbtNotary` service
 - [ ] Add `GetPublicKey` RPC method
 - [ ] Add build script to generate Rust code
 
 **Files to create**:
 ```
 proto/
-  └── Stamp/Beacon Trees.proto
+  └── sbt.proto
 ```
 
 #### 1.2 Implement Server (Notary)

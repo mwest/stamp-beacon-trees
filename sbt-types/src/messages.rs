@@ -1,4 +1,4 @@
-//! Protocol message definitions for Stamp/Beacon Tree protocol
+//! Protocol message definitions for SBT (Stamp/Beacon Tree) protocol
 
 use crate::primitives::{Digest, Nonce, PublicKey, Signature, Timestamp};
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,4 @@
-//! Stamp/Beacon Tree construction with per-leaf timing deltas
+//! Stamp/beacon tree construction with per-leaf timing deltas
 
 use sbt_types::{
     messages::{compute_leaf_hash, hash_pair, MerkleNode, MerklePath},

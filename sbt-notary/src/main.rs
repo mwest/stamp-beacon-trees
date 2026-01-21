@@ -1,4 +1,4 @@
-//! Stamp/Beacon Trees Notary Server entry point
+//! SBT Notary Server entry point
 
 use std::path::PathBuf;
 use tracing::Level;
@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let config = NotaryConfig::default();
         config.to_file(&config_path)?;
         eprintln!("Default configuration saved to {}", config_path.display());
-        eprintln!("Please edit the configuration and set Stamp/Beacon Trees_HSM_PIN environment variable");
+        eprintln!("Please edit the configuration and set SBT_HSM_PIN environment variable");
         std::process::exit(1);
     };
 

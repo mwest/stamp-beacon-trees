@@ -3,24 +3,24 @@
 ## Project Structure
 
 ```
-Stamp/Beacon Trees/
-├── types/          # Protocol definitions (zero dependencies)
+sbt/
+├── sbt-types/      # Protocol definitions (zero dependencies)
 │   ├── primitives  # Digest, Signature, Nonce, Timestamp
 │   ├── messages    # StampRequest, StampResponse, TimestampProof
 │   └── error       # Error types
 │
-├── core/           # Cryptographic logic
+├── sbt-core/       # Cryptographic logic
 │   ├── merkle      # Tree construction and path generation
 │   ├── nonce       # Nonce generation
 │   └── verify      # Proof verification
 │
-├── notary/         # Trusted server
+├── sbt-notary/     # Trusted server
 │   ├── config      # Configuration management
 │   ├── hsm         # PKCS#11 HSM integration
 │   ├── batch       # Request batching and tree building
 │   └── server      # Network server (TODO)
 │
-└── client/         # Client library + CLI
+└── sbt-client/     # Client library + CLI
     ├── client      # Network client (TODO)
     ├── storage     # Local proof storage
     └── main        # CLI interface
@@ -53,7 +53,7 @@ brew install softhsm opensc
 
 ```bash
 # Initialize SoftHSM token
-softhsm2-util --init-token --slot 0 --label "Stamp/Beacon Trees-test" --pin 1234 --so-pin 5678
+softhsm2-util --init-token --slot 0 --label "sbt-test" --pin 1234 --so-pin 5678
 
 # Generate Ed25519 key
 # Note: Some SoftHSM versions may not support Ed25519
@@ -73,7 +73,7 @@ cargo build
 cargo test --workspace
 
 # Run with logging
-RUST_LOG=debug cargo run -p Stamp/Beacon Trees-notary
+RUST_LOG=debug cargo run -p sbt-notary
 ```
 
 ## Testing Strategy
@@ -84,9 +84,9 @@ Each crate has its own unit tests:
 
 ```bash
 # Test specific crate
-cargo test -p Stamp/Beacon Trees-types
-cargo test -p Stamp/Beacon Trees-core
-cargo test -p Stamp/Beacon Trees-client
+cargo test -p sbt-types
+cargo test -p sbt-core
+cargo test -p sbt-client
 
 # Test with output
 cargo test -- --nocapture
@@ -101,7 +101,7 @@ HSM integration tests are marked with `#[ignore]` and require a real HSM:
 cargo test -- --ignored
 
 # Run specific test
-cargo test -p Stamp/Beacon Trees-notary hsm::tests::test_hsm_signer -- --ignored
+cargo test -p sbt-notary hsm::tests::test_hsm_signer -- --ignored
 ```
 
 ### Property-Based Tests
@@ -109,7 +109,7 @@ cargo test -p Stamp/Beacon Trees-notary hsm::tests::test_hsm_signer -- --ignored
 Core cryptographic functions use proptest:
 
 ```bash
-cargo test -p Stamp/Beacon Trees-core -- --include-ignored
+cargo test -p sbt-core -- --include-ignored
 ```
 
 ## Code Quality
@@ -140,27 +140,27 @@ cargo audit
 
 ### Adding a New Message Type
 
-1. Define in `types/src/messages.rs`
+1. Define in `sbt-types/src/messages.rs`
 2. Add serialization tests
 3. Update protocol version if breaking change
 
 ### Modifying Tree Construction
 
-1. Edit `core/src/merkle.rs`
+1. Edit `sbt-core/src/merkle.rs`
 2. Update tests to cover new behavior
 3. Ensure backward compatibility for verification
 
 ### Adding HSM Support for New Key Type
 
-1. Update `notary/src/hsm.rs`
+1. Update `sbt-notary/src/hsm.rs`
 2. Add mechanism mapping
 3. Test with your specific HSM
 
 ### Implementing Network Protocol
 
 Current placeholder locations:
-- Server: `notary/src/server.rs` (see TODO comments)
-- Client: `client/src/client.rs` (see `send_request()`)
+- Server: `sbt-notary/src/server.rs` (see TODO comments)
+- Client: `sbt-client/src/client.rs` (see `send_request()`)
 
 Recommended approach:
 1. Define protobuf schema in `proto/`
@@ -193,7 +193,7 @@ Recommended approach:
 ### Enable Trace Logging
 
 ```bash
-RUST_LOG=trace cargo run -p Stamp/Beacon Trees-notary
+RUST_LOG=trace cargo run -p sbt-notary
 ```
 
 ### Debug HSM Issues
@@ -210,7 +210,7 @@ pkcs11-tool --module /usr/lib/softhsm/libsofthsm2.so --list-mechanisms
 
 ```bash
 # Test proof verification
-cargo test -p Stamp/Beacon Trees-core verify::tests -- --nocapture
+cargo test -p sbt-core verify::tests -- --nocapture
 ```
 
 ## Contributing Checklist
@@ -239,7 +239,7 @@ Before submitting a PR:
 3. Run full test suite: `cargo test --workspace --all-features`
 4. Build release binaries: `cargo build --release`
 5. Tag release: `git tag v0.1.0`
-6. Publish crates in order: types → core → notary, client
+6. Publish crates in order: sbt-types → sbt-core → sbt-notary, sbt-client
 
 ## Resources
 

@@ -1,7 +1,7 @@
 .PHONY: help build test clean fmt lint audit check run-notary run-client example
 
 help:
-	@echo "Stamp/Beacon Trees Development Commands"
+	@echo "SBT Development Commands"
 	@echo "==========================="
 	@echo ""
 	@echo "  make build       - Build all crates"

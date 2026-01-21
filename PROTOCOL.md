@@ -1,8 +1,8 @@
-# Stamp/Beacon Trees Protocol Specification
+# SBT Protocol Specification
 
 ## Overview
 
-Stamp/Beacon Trees implements the Stamp/Beacon Tree protocol for cryptographic timestamping. This document describes the protocol messages, cryptographic operations, and verification procedures.
+SBT implements the Stamp/Beacon Tree protocol for cryptographic timestamping. This document describes the protocol messages, cryptographic operations, and verification procedures.
 
 ## Protocol Version
 
@@ -238,7 +238,7 @@ Notary processes requests in batches:
 
 **Service Definition** (to be implemented):
 ```protobuf
-service Stamp/Beacon TreesNotary {
+service SbtNotary {
   rpc Timestamp(StampRequest) returns (StampResponse);
   rpc GetPublicKey(Empty) returns (PublicKeyResponse);
 }

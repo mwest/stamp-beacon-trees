@@ -1,4 +1,4 @@
-//! Core cryptographic functionality for Stamp/Beacon Trees Stamp/Beacon Trees
+//! Core cryptographic functionality for SBT (Stamp/Beacon Trees)
 //!
 //! This crate provides:
 //! - Merkle tree construction with per-leaf timing deltas

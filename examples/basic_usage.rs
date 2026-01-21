@@ -1,4 +1,4 @@
-//! Basic usage example for Stamp/Beacon Trees timestamping
+//! Basic usage example for SBT (Stamp/Beacon Trees) timestamping
 //!
 //! This example demonstrates:
 //! - Building a stamp/beacon tree manually
@@ -11,7 +11,7 @@ use sbt_core::{LeafData, NonceGenerator, StampTreeBuilder};
 use sbt_types::{Digest, Timestamp};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Stamp/Beacon Trees Example");
+    println!("SBT (Stamp/Beacon Trees) Example");
     println!("===========================\n");
 
     // Step 1: Create some data to timestamp

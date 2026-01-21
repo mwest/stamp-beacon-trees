@@ -1,4 +1,4 @@
-//! Stamp/Beacon Trees Notary Server
+//! SBT Notary Server
 //!
 //! The trusted timestamping service that builds stamp/beacon trees
 //! and signs them using an HSM.

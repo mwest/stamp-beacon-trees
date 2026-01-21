@@ -1,4 +1,4 @@
-# Example Stamp/Beacon Trees Notary Configuration
+# Example SBT Notary Configuration
 # Copy this to notary.toml and customize for your deployment
 
 [server]
@@ -32,7 +32,7 @@ key_label = "sbt-notary-key"
 # key_id = [0x01, 0x02, 0x03]
 
 # NOTE: HSM PIN should be provided via environment variable:
-# export Stamp/Beacon Trees_HSM_PIN="your-pin-here"
+# export SBT_HSM_PIN="your-pin-here"
 
 [batch]
 # Maximum number of requests in a single batch

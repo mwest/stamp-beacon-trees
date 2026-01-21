@@ -16,7 +16,7 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
-# Stamp/Beacon Trees specific
+# SBT specific
 notary.toml
 *.sbt/
 .sbt/

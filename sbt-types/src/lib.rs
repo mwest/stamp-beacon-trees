@@ -1,7 +1,7 @@
-//! Core types and protocol definitions for Stamp/Beacon Trees Stamp/Beacon Trees
+//! Core types and protocol definitions for SBT (Stamp/Beacon Trees)
 //!
 //! This crate defines the fundamental data structures and message formats
-//! used throughout the Stamp/Beacon Trees timestamping system.
+//! used throughout the SBT timestamping system.
 
 pub mod error;
 pub mod messages;

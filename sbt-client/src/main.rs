@@ -1,4 +1,4 @@
-//! Stamp/Beacon Trees CLI client
+//! SBT (Stamp/Beacon Trees) CLI client
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -8,7 +8,7 @@ use sbt_types::Digest;
 
 #[derive(Parser)]
 #[command(name = "sbt")]
-#[command(about = "Stamp/Beacon Trees timestamp client", long_about = None)]
+#[command(about = "SBT (Stamp/Beacon Trees) timestamp client", long_about = None)]
 struct Cli {
     /// Server URL
     #[arg(short, long, default_value = "http://localhost:8080")]
@@ -72,7 +72,7 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let client = Stamp/Beacon TreesClient::new(cli.server);
+    let client = SbtClient::new(cli.server);
     let storage = ProofStorage::open(&cli.storage_dir)?;
 
     match cli.command {

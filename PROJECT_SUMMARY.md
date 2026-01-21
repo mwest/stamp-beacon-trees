@@ -1,11 +1,11 @@
-# Stamp/Beacon Trees Project Summary
+# SBT Project Summary
 
 ## Repository Structure Created
 
 The following Cargo workspace has been scaffolded with 4 crates:
 
 ```
-Stamp/Beacon Trees/
+sbt/
 ├── Cargo.toml                 # Workspace definition
 ├── .gitignore                 # Git ignore rules
 ├── README.md                  # User documentation
@@ -13,7 +13,7 @@ Stamp/Beacon Trees/
 ├── CHANGELOG.md               # Version history
 ├── notary.example.toml        # Example configuration
 │
-├── types/                     # Stamp/Beacon Trees-types crate
+├── sbt-types/                 # sbt-types crate
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -21,7 +21,7 @@ Stamp/Beacon Trees/
 │       ├── messages.rs        # Protocol messages
 │       └── error.rs           # Error types
 │
-├── core/                      # Stamp/Beacon Trees-core crate
+├── sbt-core/                  # sbt-core crate
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -29,7 +29,7 @@ Stamp/Beacon Trees/
 │       ├── nonce.rs           # Nonce generation
 │       └── verify.rs          # Proof verification
 │
-├── notary/                    # Stamp/Beacon Trees-notary crate
+├── sbt-notary/                # sbt-notary crate
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -39,7 +39,7 @@ Stamp/Beacon Trees/
 │       ├── batch.rs           # Request batching
 │       └── server.rs          # Server implementation
 │
-├── client/                    # Stamp/Beacon Trees-client crate
+├── sbt-client/                # sbt-client crate
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
@@ -55,22 +55,22 @@ Stamp/Beacon Trees/
 
 ### ✅ Completed
 
-**Stamp/Beacon Trees-types**
+**sbt-types**
 - ✅ Cryptographic primitives (Digest, Signature, PublicKey, Nonce, Timestamp)
 - ✅ Protocol messages (StampRequest, StampResponse, TimestampProof)
 - ✅ Merkle path structures
 - ✅ Message construction utilities
 - ✅ Comprehensive tests
 
-**Stamp/Beacon Trees-core**
-- ✅ Stamp/Beacon tree builder
+**sbt-core**
+- ✅ Stamp/beacon tree builder
 - ✅ Per-leaf timing delta support
 - ✅ Merkle path generation
 - ✅ Cryptographic nonce generation
 - ✅ Ed25519 signature verification
 - ✅ Complete test coverage
 
-**Stamp/Beacon Trees-notary**
+**sbt-notary**
 - ✅ Configuration management (TOML)
 - ✅ PKCS#11 HSM integration
 - ✅ Batch processing engine
@@ -78,7 +78,7 @@ Stamp/Beacon Trees/
 - ✅ Server framework
 - ✅ Logging infrastructure
 
-**Stamp/Beacon Trees-client**
+**sbt-client**
 - ✅ Client library API
 - ✅ Local proof storage (sled database)
 - ✅ Complete CLI interface
@@ -89,13 +89,13 @@ Stamp/Beacon Trees/
 
 Both server and client have placeholders for network communication:
 
-**Server Side** ([notary/src/server.rs:53](notary/src/server.rs#L53))
+**Server Side** ([sbt-notary/src/server.rs:53](sbt-notary/src/server.rs#L53))
 - Need to implement gRPC or HTTP server
 - Accept StampRequest messages
 - Return StampResponse messages
 - Consider: TLS, authentication, rate limiting
 
-**Client Side** ([client/src/client.rs:48](client/src/client.rs#L48))
+**Client Side** ([sbt-client/src/client.rs:48](sbt-client/src/client.rs#L48))
 - Need to implement gRPC or HTTP client
 - Send StampRequest to server
 - Receive and parse StampResponse
@@ -199,7 +199,7 @@ cargo run --example basic_usage
 
 # Build release binaries
 cargo build --release
-# Binaries: target/release/Stamp/Beacon Trees-notary, target/release/Stamp/Beacon Trees
+# Binaries: target/release/sbt-notary, target/release/sbt
 ```
 
 ## Deployment Considerations
@@ -234,7 +234,7 @@ cargo build --release
 
 ## Summary
 
-The Stamp/Beacon Trees timestamping system has been scaffolded with a solid foundation:
+The SBT timestamping system has been scaffolded with a solid foundation:
 
 - ✅ Complete cryptographic core
 - ✅ HSM integration ready
