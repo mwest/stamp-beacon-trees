@@ -36,6 +36,9 @@ rustls-pemfile = { workspace = true }
 # Configuration
 toml = "0.8"
 
+# Cryptographic utilities
+rand = { workspace = true }
+
 [build-dependencies]
 tonic-build = "0.12"
 
