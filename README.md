@@ -32,18 +32,22 @@ Cryptographic and tree construction logic:
 
 ### 3. `sbt-notary`
 The trusted timestamping server:
-- Receives client timestamp requests
+- Receives client timestamp requests via gRPC
 - Builds stamp/beacon trees with precise timing
 - Signs trees using HSM-backed keys (PKCS#11)
 - Batch processing for scalability
-- Current state storage (no historical archive)
+- TLS/mTLS support for secure connections
+- Rate limiting for DoS protection
+- API key and certificate-based authentication
 
 ### 4. `sbt-client`
 Client library and CLI tool:
-- Submit files/data for timestamping
+- Submit files/data for timestamping via gRPC
 - Verify timestamp proofs
 - Store and manage proofs locally
 - Export/import proofs as JSON
+- TLS/mTLS support for secure connections
+- API key authentication support
 - Command-line interface for all operations
 
 ## Getting Started
@@ -110,7 +114,30 @@ key_label = "sbt-notary-key"
 max_batch_size = 1000
 max_wait_ms = 100
 batch_interval_ms = 1000
+
+# Optional: TLS configuration
+[tls]
+cert_path = "/etc/sbt/server.crt"
+key_path = "/etc/sbt/server.key"
+# ca_cert_path = "/etc/sbt/ca.crt"  # Enable mTLS
+
+# Optional: Rate limiting
+[rate_limit]
+enabled = true
+per_ip_rps = 100
+per_ip_burst = 200
+global_rps = 10000
+global_burst = 20000
+
+# Optional: Authentication
+[auth]
+enabled = true
+mode = "api_key"  # or "mtls_only" or "hybrid"
+allow_anonymous_health = true
+# API keys can be loaded from environment: SBT_API_KEYS="key1:secret1,key2:secret2"
 ```
+
+See `notary.example.toml` for full configuration options.
 
 3. **Set HSM PIN**:
 
@@ -126,42 +153,58 @@ sbt-notary notary.toml
 
 ### Client
 
-**Timestamp a file**:
+**Basic usage**:
 
 ```bash
+# Timestamp a file
 sbt timestamp document.pdf
-```
 
-**Verify a timestamp**:
-
-```bash
-# By digest
+# Verify a timestamp (by digest or file)
 sbt verify abc123...
-
-# By file
 sbt verify document.pdf
-```
 
-**List stored proofs**:
-
-```bash
+# List stored proofs
 sbt list
-```
 
-**Show proof details**:
-
-```bash
+# Show proof details
 sbt show abc123...
+
+# Export/Import proofs
+sbt export abc123... -o proof.json
+sbt import proof.json
+
+# Check server health
+sbt health
+
+# Get notary's public key
+sbt public-key
 ```
 
-**Export/Import proofs**:
+**Connection options**:
 
 ```bash
-# Export to JSON
-sbt export abc123... -o proof.json
+# Connect to a specific server
+sbt -s http://notary.example.com:8080 timestamp document.pdf
 
-# Import from JSON
-sbt import proof.json
+# With TLS (uses system CA roots)
+sbt -s https://notary.example.com:8080 timestamp document.pdf
+
+# With custom CA certificate
+sbt -s https://notary.example.com:8080 --ca-cert ca.crt timestamp document.pdf
+
+# With mTLS client certificate
+sbt -s https://notary.example.com:8080 \
+    --ca-cert ca.crt \
+    --client-cert client.crt \
+    --client-key client.key \
+    timestamp document.pdf
+
+# With API key authentication
+sbt --api-key "your-secret-key" timestamp document.pdf
+
+# Or via environment variable
+export SBT_API_KEY="your-secret-key"
+sbt timestamp document.pdf
 ```
 
 ## How It Works
@@ -205,28 +248,39 @@ All verification can be done offline with just the proof and notary's public key
 ### Threat Model
 
 - Clients are untrusted
-- Network is untrusted (MITM possible)
+- Network is untrusted (use TLS in production)
 - Notary server code is auditable
 - HSM prevents key extraction even if server is compromised
 - Per-leaf nonces prevent sibling attacks
 - Merkle tree structure ensures proof integrity
+- Domain-separated signatures prevent cross-protocol attacks
+
+### Security Features
+
+- **TLS/mTLS**: Encrypted connections with optional client certificate verification
+- **API Key Authentication**: Header-based authentication for client identification
+- **Rate Limiting**: Token bucket algorithm protects against DoS attacks
+- **Request Size Limits**: Prevents resource exhaustion from oversized requests
 
 ### Current Limitations
 
 1. **No clock sync**: Clients must trust notary's clock
 2. **Single notary**: No federation support yet
 3. **No aggregation**: Untrusted aggregators not implemented
-4. **Network protocol**: gRPC/HTTP implementation pending
 
 ## Future Work
 
-- [ ] Implement network protocol (gRPC)
+- [x] ~~Implement network protocol (gRPC)~~
+- [x] ~~TLS/mTLS support~~
+- [x] ~~Rate limiting~~
+- [x] ~~API key authentication~~
 - [ ] Clock synchronization (Roughtime-style)
 - [ ] Untrusted aggregation servers
 - [ ] Random beacon functionality
 - [ ] Notary federation support
 - [ ] OpenTimestamps compatibility
 - [ ] Public transparency log
+- [ ] OAuth 2.0 / JWT token support
 
 ## License
 
