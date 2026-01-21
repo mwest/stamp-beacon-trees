@@ -31,12 +31,13 @@ impl BatchProcessor {
         signer: Arc<HsmSigner>,
         request_rx: mpsc::Receiver<BatchRequest>,
     ) -> Self {
+        let capacity = config.max_batch_size;
         Self {
             config,
             signer,
             nonce_gen: Arc::new(RwLock::new(NonceGenerator::new())),
             request_rx,
-            pending_requests: Vec::with_capacity(config.max_batch_size),
+            pending_requests: Vec::with_capacity(capacity),
         }
     }
 

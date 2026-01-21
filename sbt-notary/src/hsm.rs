@@ -8,6 +8,7 @@ use cryptoki::{
     types::AuthPin,
 };
 use std::path::Path;
+use std::sync::Mutex;
 use thiserror::Error;
 use sbt_types::{PublicKey, Signature};
 
@@ -33,13 +34,24 @@ pub enum HsmError {
 
     #[error("HSM error: {0}")]
     Other(String),
+
+    #[error("Lock poisoned")]
+    LockPoisoned,
 }
 
-/// HSM signer for Ed25519 signatures
-pub struct HsmSigner {
+/// Inner HSM state that is not Send/Sync
+struct HsmInner {
     pkcs11: Pkcs11,
     session: Session,
     private_key_handle: ObjectHandle,
+}
+
+/// HSM signer for Ed25519 signatures
+/// Thread-safe wrapper around cryptoki session
+pub struct HsmSigner {
+    /// Mutex-protected inner state (cryptoki types are not Send/Sync)
+    inner: Mutex<HsmInner>,
+    /// Public key (safe to share across threads)
     public_key: PublicKey,
 }
 
@@ -64,7 +76,7 @@ impl HsmSigner {
             .get_slots_with_token()
             .map_err(|e| HsmError::SessionFailed(e.to_string()))?
             .into_iter()
-            .find(|s| s.id() == slot_id.into())
+            .find(|s| u64::from(s.id()) == slot_id)
             .ok_or_else(|| HsmError::SessionFailed(format!("Slot {} not found", slot_id)))?;
 
         let session = pkcs11
@@ -85,10 +97,14 @@ impl HsmSigner {
         let public_key = PublicKey::from_slice(&public_key_bytes)
             .map_err(|_| HsmError::Other("Invalid public key format".to_string()))?;
 
-        Ok(Self {
+        let inner = HsmInner {
             pkcs11,
             session,
             private_key_handle,
+        };
+
+        Ok(Self {
+            inner: Mutex::new(inner),
             public_key,
         })
     }
@@ -100,14 +116,16 @@ impl HsmSigner {
 
     /// Sign a message using the HSM
     pub fn sign(&self, message: &[u8]) -> Result<Signature, HsmError> {
+        let inner = self.inner.lock().map_err(|_| HsmError::LockPoisoned)?;
+
         // Use EdDSA mechanism for Ed25519
         // Note: The exact mechanism depends on HSM support
         // Some HSMs may require CKM_ECDSA for EdDSA curves
         let mechanism = Mechanism::Eddsa;
 
-        let signature_bytes = self
+        let signature_bytes = inner
             .session
-            .sign(&mechanism, self.private_key_handle, message)
+            .sign(&mechanism, inner.private_key_handle, message)
             .map_err(|e| HsmError::SigningFailed(e.to_string()))?;
 
         if signature_bytes.len() != 64 {
@@ -165,8 +183,11 @@ impl HsmSigner {
 impl Drop for HsmSigner {
     fn drop(&mut self) {
         // Logout and cleanup
-        let _ = self.session.logout();
-        let _ = self.pkcs11.finalize();
+        if let Ok(inner) = self.inner.get_mut() {
+            let _ = inner.session.logout();
+            // Note: finalize() takes ownership, which we can't do in Drop
+            // The Pkcs11 will be finalized when it's dropped
+        }
     }
 }
 

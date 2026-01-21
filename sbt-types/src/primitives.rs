@@ -6,8 +6,28 @@ use std::fmt;
 
 /// A cryptographic digest (hash output)
 /// Using BLAKE3 as the primary hash function (32 bytes)
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Digest([u8; 32]);
+
+// Custom serde implementation for Digest - serialize as hex for readability
+impl Serialize for Digest {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for Digest {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_str = String::deserialize(deserializer)?;
+        Self::from_hex(&hex_str).map_err(serde::de::Error::custom)
+    }
+}
 
 impl Digest {
     pub const LEN: usize = 32;
@@ -55,8 +75,29 @@ impl fmt::Display for Digest {
 }
 
 /// A cryptographic signature (Ed25519)
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Signature([u8; 64]);
+
+// Custom serde implementation for Signature since [u8; 64] doesn't implement Serialize/Deserialize
+impl Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Serialize as hex string for readability and JSON compatibility
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for Signature {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_str = String::deserialize(deserializer)?;
+        Self::from_hex(&hex_str).map_err(serde::de::Error::custom)
+    }
+}
 
 impl Signature {
     pub const LEN: usize = 64;
@@ -95,8 +136,28 @@ impl fmt::Debug for Signature {
 }
 
 /// A public key (Ed25519)
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PublicKey([u8; 32]);
+
+// Custom serde implementation for PublicKey - serialize as hex for readability
+impl Serialize for PublicKey {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for PublicKey {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_str = String::deserialize(deserializer)?;
+        Self::from_hex(&hex_str).map_err(serde::de::Error::custom)
+    }
+}
 
 impl PublicKey {
     pub const LEN: usize = 32;
@@ -141,8 +202,28 @@ impl fmt::Display for PublicKey {
 }
 
 /// A cryptographic nonce (32 bytes of randomness)
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Nonce([u8; 32]);
+
+// Custom serde implementation for Nonce - serialize as hex for readability
+impl Serialize for Nonce {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for Nonce {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_str = String::deserialize(deserializer)?;
+        Self::from_hex(&hex_str).map_err(serde::de::Error::custom)
+    }
+}
 
 impl Nonce {
     pub const LEN: usize = 32;

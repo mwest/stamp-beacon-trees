@@ -1,25 +1,21 @@
 //! Cryptographic nonce generation
 
-use rand::RngCore;
+use rand::{RngCore, SeedableRng};
+use rand::rngs::StdRng;
 use sbt_types::Nonce;
 
 /// Generator for cryptographically secure random nonces.
 ///
-/// Uses `ThreadRng` which is cryptographically secure (backed by the OS CSPRNG).
-///
-/// # Thread Safety
-///
-/// `ThreadRng` is not `Send` or `Sync`, so this generator cannot be shared
-/// directly across threads. For multi-threaded use, wrap in `Arc<Mutex<NonceGenerator>>`
-/// or create a separate generator per thread.
+/// Uses `StdRng` seeded from OS entropy, which is cryptographically secure
+/// and implements `Send` for use across threads.
 pub struct NonceGenerator {
-    rng: rand::rngs::ThreadRng,
+    rng: StdRng,
 }
 
 impl NonceGenerator {
     pub fn new() -> Self {
         Self {
-            rng: rand::thread_rng(),
+            rng: StdRng::from_entropy(),
         }
     }
 
