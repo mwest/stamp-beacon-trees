@@ -173,32 +173,47 @@
 ### 6. Clock Synchronization 🕐 HIGH PRIORITY
 
 **Status**: Not started
-**Why**: Critical for timestamp accuracy
+**Why**: Critical for timestamp accuracy and legal traceability
 
-#### 5.1 Roughtime Integration
+#### 6.1 PTP Integration (NRC Timelink)
 
-- [ ] Research Roughtime protocol
-- [ ] Add Roughtime client to notary
-- [ ] Query multiple time sources
-- [ ] Detect outliers
-- [ ] Expose clock offset in metrics
-- [ ] Alert on clock drift
-- [ ] Document time source configuration
+**Goal**: Sub-microsecond accuracy with traceability to UTC(NRC)
 
-#### 5.2 Clock Monitoring
+- [ ] Configure PTP daemon (ptp4l/phc2sys) on notary server
+- [ ] Document NRC Timelink Clock setup and network requirements
+- [ ] Verify PTP-capable NIC with hardware timestamping support
+- [ ] Configure PTP-aware network switches (or use boundary/transparent clocks)
+- [ ] Test PTP sync stability and measure achieved accuracy
+- [ ] Document traceability chain: NRC Cesium → Timelink → PTP → Notary
 
-- [ ] Monitor system clock vs Roughtime
-- [ ] Detect clock jumps
-- [ ] Log clock anomalies
-- [ ] Add clock health check endpoint
+#### 6.2 Clock Monitoring
 
-**References**: See [SECURITY.md - Clock Manipulation](SECURITY.md#6-clock-manipulation)
+- [ ] Monitor PTP sync status (ptp4l servo state)
+- [ ] Expose PTP offset in metrics (currentDS.offsetFromMaster)
+- [ ] Alert on sync loss or excessive offset (>1μs threshold)
+- [ ] Detect clock jumps and log anomalies
+- [ ] Add clock health check endpoint (include PTP state)
+- [ ] Log PTP sync status as part of audit trail
+
+#### 6.3 Fallback & Resilience
+
+- [ ] Configure NTP as fallback if PTP sync lost
+- [ ] Define acceptable degradation policy (refuse to sign vs. warn)
+- [ ] Document clock accuracy guarantees under different conditions
+
+**Hardware Requirements**:
+- PTP-capable NIC (Intel i210, i350, or similar with hardware timestamping)
+- Network path with PTP-aware switches, or direct connection to Timelink
+
+**References**:
+- [NRC Timelink Service](https://nrc.canada.ca/en/certifications-evaluations-standards/time-frequency-services)
+- [SECURITY.md - Clock Manipulation](SECURITY.md#6-clock-manipulation)
 
 ### 7. Monitoring & Observability 📊 MEDIUM PRIORITY
 
 **Status**: Basic logging implemented
 
-#### 6.1 Metrics (Prometheus)
+#### 7.1 Metrics (Prometheus)
 
 - [ ] Add `prometheus` crate
 - [ ] Metrics endpoint (`/metrics`)
@@ -211,7 +226,7 @@
 - [ ] Gauge: Current batch queue size
 - [ ] Gauge: Clock offset
 
-#### 6.2 Health Checks
+#### 7.2 Health Checks
 
 - [ ] `/health` endpoint (liveness)
 - [ ] `/ready` endpoint (readiness)
@@ -219,7 +234,7 @@
 - [ ] Check clock sync status
 - [ ] Return proper HTTP status codes
 
-#### 6.3 Structured Logging
+#### 7.3 Structured Logging
 
 - [ ] Use `tracing` with JSON output option
 - [ ] Log correlation IDs
@@ -227,7 +242,7 @@
 - [ ] Configure log levels per module
 - [ ] Add log sampling for high-volume events
 
-#### 6.4 Distributed Tracing
+#### 7.4 Distributed Tracing
 
 - [ ] Add OpenTelemetry support
 - [ ] Trace request flow
@@ -235,7 +250,7 @@
 
 ### 8. Deployment & Operations 🚀 MEDIUM PRIORITY
 
-#### 7.1 Containerization
+#### 8.1 Containerization
 
 - [ ] Create `Dockerfile` for notary
 - [ ] Create `Dockerfile` for client
@@ -244,21 +259,21 @@
 - [ ] Document volume mounts
 - [ ] Add docker-compose example
 
-#### 7.2 Service Management
+#### 8.2 Service Management
 
 - [ ] Create systemd service file
 - [ ] Create launchd plist (macOS)
 - [ ] Add service installation script
 - [ ] Document service management
 
-#### 7.3 Configuration Management
+#### 8.3 Configuration Management
 
 - [ ] Environment variable override support
 - [ ] Config validation on startup
 - [ ] Config reload without restart (SIGHUP)
 - [ ] Document all config options
 
-#### 7.4 Backup & Recovery
+#### 8.4 Backup & Recovery
 
 - [ ] HSM key backup procedures
 - [ ] Config backup
@@ -282,7 +297,7 @@
 
 ### 10. Transparency & Auditability 📜 LOW PRIORITY
 
-#### 9.1 Public Transparency Log
+#### 10.1 Public Transparency Log
 
 - [ ] Design log format
 - [ ] Implement append-only log
@@ -291,7 +306,7 @@
 - [ ] Add log verification tools
 - [ ] Document transparency guarantees
 
-#### 9.2 Cross-Signing
+#### 10.2 Cross-Signing
 
 - [ ] Support multiple notaries
 - [ ] Cross-sign with other notaries
@@ -315,7 +330,7 @@
 
 ### 12. Additional Use Cases 🎯 LOW PRIORITY
 
-#### 11.1 Random Beacon
+#### 12.1 Random Beacon
 
 - [ ] Expose nonces as random beacons
 - [ ] Add `GetRandomness` API
@@ -323,7 +338,7 @@
 - [ ] Document beacon usage
 - [ ] Add beacon verification
 
-#### 11.2 Clock Synchronization
+#### 12.2 Clock Synchronization
 
 - [ ] Implement delta-time measurement
 - [ ] Support repeated measurements
@@ -333,29 +348,11 @@
 
 **References**: See paper sections "Random Beacon" and "Clock Synchronization"
 
-### 13. Protocol Compatibility 🔗 LOW PRIORITY
-
-#### 12.1 OpenTimestamps Compatibility
-
-- [ ] Research OTS format
-- [ ] Add OTS export option
-- [ ] Add OTS import option
-- [ ] Bridge to OTS calendar servers
-- [ ] Document compatibility
-
-#### 12.2 RFC 3161 Support
-
-- [ ] Implement RFC 3161 TSA protocol
-- [ ] Convert proofs to RFC 3161 format
-- [ ] Document compatibility
-
----
-
 ## Code Quality & Testing
 
-### 14. Testing Improvements 🧪 MEDIUM PRIORITY
+### 13. Testing Improvements 🧪 MEDIUM PRIORITY
 
-#### 14.1 Unit Tests
+#### 13.1 Unit Tests
 
 - [x] Core merkle tree tests
 - [x] Primitives tests
@@ -367,7 +364,7 @@
   - Serialization round-trips
 - [ ] Add fuzzing tests for input parsers
 
-#### 14.2 Integration Tests
+#### 13.2 Integration Tests
 
 - [ ] End-to-end notary+client tests
 - [ ] HSM integration tests (with real HSM)
@@ -375,7 +372,7 @@
 - [ ] Concurrent client tests
 - [ ] Large batch tests (10k+ requests)
 
-#### 14.3 Benchmarks
+#### 13.3 Benchmarks
 
 **Note**: `criterion` is in dependencies but no benchmarks implemented yet.
 
@@ -386,7 +383,7 @@
 - [ ] Batch processing throughput
 - [ ] Add to CI/CD
 
-#### 14.4 Security Testing
+#### 13.4 Security Testing
 
 - [ ] Fuzzing input parsers
 - [ ] Fuzzing Merkle path verification
@@ -395,7 +392,7 @@
 - [ ] Dependency audit automation (`cargo audit`)
 - [ ] Penetration testing
 
-### 15. Documentation 📖 ONGOING
+### 14. Documentation 📖 ONGOING
 
 - [x] README.md
 - [x] ARCHITECTURE.md
@@ -412,7 +409,7 @@
 - [ ] Create architecture diagrams (SVG)
 - [ ] Record demo video
 
-### 16. CI/CD Pipeline 🔄 MEDIUM PRIORITY
+### 15. CI/CD Pipeline 🔄 MEDIUM PRIORITY
 
 - [ ] GitHub Actions workflow
 - [ ] Run tests on PR
@@ -431,11 +428,11 @@
 
 ## Performance Optimization
 
-### 17. Performance Tuning ⚡ LOW PRIORITY
+### 16. Performance Tuning ⚡ LOW PRIORITY
 
 **Do after baseline benchmarks**
 
-#### 17.1 Tree Construction
+#### 16.1 Tree Construction
 
 - [ ] Benchmark current implementation
 - [ ] Profile hot paths
@@ -443,14 +440,14 @@
 - [ ] Consider streaming path generation
 - [ ] Parallel tree building (if beneficial)
 
-#### 17.2 Batch Processing
+#### 16.2 Batch Processing
 
 - [ ] Tune batch parameters based on load
 - [ ] Adaptive batching
 - [ ] Pre-allocated buffers
 - [ ] Zero-copy optimizations
 
-#### 17.3 Network
+#### 16.3 Network
 
 - [ ] HTTP/2 multiplexing tuning
 - [ ] Connection pooling
@@ -459,7 +456,7 @@
 
 ---
 
-#### 17.4 Memory Optimization
+#### 16.4 Memory Optimization
 
 - [ ] Document memory requirements for large batches (~64 bytes × 2N for N leaves)
 - [ ] Consider streaming Merkle path generation for very large batches (>100k leaves)
@@ -469,7 +466,7 @@
 
 ## Future Research & Enhancements
 
-### 18. Post-Quantum Cryptography 🔮 RESEARCH
+### 17. Post-Quantum Cryptography 🔮 RESEARCH
 
 **Timeline**: When PQ standards mature
 
@@ -479,7 +476,7 @@
 - [ ] Migration path from Ed25519
 - [ ] Document PQ support
 
-### 19. Advanced Security Features 🛡️ RESEARCH
+### 18. Advanced Security Features 🛡️ RESEARCH
 
 - [ ] Threshold signatures (multiple HSMs)
 - [ ] Multiparty computation for signing
@@ -487,7 +484,7 @@
 - [ ] TPM integration
 - [ ] Hardware attestation
 
-### 20. Scalability Research 📈 RESEARCH
+### 19. Scalability Research 📈 RESEARCH
 
 - [ ] Sharding strategies
 - [ ] Geographic distribution
@@ -499,7 +496,7 @@
 
 ## Release Checklist
 
-### 21. Storage Evaluation 💾 LOW PRIORITY
+### 20. Storage Evaluation 💾 LOW PRIORITY
 
 **Current**: Using `sled` for client storage
 
