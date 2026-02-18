@@ -12,7 +12,7 @@ use tracing::{debug, info};
 use crate::auth::{AuthError, Authenticator};
 use crate::batch::BatchRequest;
 use crate::hsm::Signer;
-use crate::rate_limit::{RateLimiter, RateLimitError};
+use crate::rate_limit::{RateLimiter, RateLimitError, RateLimitInfo};
 use sbt_types::{Digest, Nonce, PublicKey, Signature, Timestamp as SbtTimestamp};
 use sbt_types::messages::{MerklePath, MerkleNode, TimestampProof};
 
@@ -113,15 +113,18 @@ impl SbtNotaryService {
         request.remote_addr().map(|addr| addr.ip())
     }
 
-    /// Check rate limits for a request
-    async fn check_rate_limits<T>(&self, request: &Request<T>) -> Result<(), Status> {
+    /// Check rate limits for a request.
+    /// Returns `Some(RateLimitInfo)` when rate limiting is enabled, `None` otherwise.
+    async fn check_rate_limits<T>(&self, request: &Request<T>) -> Result<Option<RateLimitInfo>, Status> {
         if let Some(limiter) = &self.rate_limiter {
             let client_ip = self.extract_client_ip(request)
                 .unwrap_or_else(|| IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)));
 
-            limiter.check_rate_limit(client_ip).await.map_err(rate_limit_to_status)?;
+            let info = limiter.check_rate_limit(client_ip).await.map_err(rate_limit_to_status)?;
+            Ok(Some(info))
+        } else {
+            Ok(None)
         }
-        Ok(())
     }
 
     /// Check request size limits
@@ -189,6 +192,21 @@ impl SbtNotaryService {
     }
 }
 
+/// Insert rate limit headers into gRPC response metadata.
+fn insert_rate_limit_headers<T>(response: &mut Response<T>, info: &RateLimitInfo) {
+    let metadata = response.metadata_mut();
+    // Numeric to_string() always produces valid ASCII metadata values
+    if let Ok(v) = info.limit.to_string().parse() {
+        metadata.insert("x-ratelimit-limit", v);
+    }
+    if let Ok(v) = info.remaining.to_string().parse() {
+        metadata.insert("x-ratelimit-remaining", v);
+    }
+    if let Ok(v) = info.reset_secs.to_string().parse() {
+        metadata.insert("x-ratelimit-reset", v);
+    }
+}
+
 /// Convert rate limit error to gRPC status
 fn rate_limit_to_status(err: RateLimitError) -> Status {
     match err {
@@ -226,7 +244,7 @@ impl SbtNotary for SbtNotaryService {
         self.authenticate_timestamp(&request).await?;
 
         // Check rate limits
-        self.check_rate_limits(&request).await?;
+        let rate_limit_info = self.check_rate_limits(&request).await?;
 
         let req = request.into_inner();
 
@@ -286,7 +304,11 @@ impl SbtNotary for SbtNotaryService {
         // Convert response to protobuf
         let proto_response = stamp_response_to_proto(&response);
 
-        Ok(Response::new(proto_response))
+        let mut resp = Response::new(proto_response);
+        if let Some(info) = &rate_limit_info {
+            insert_rate_limit_headers(&mut resp, info);
+        }
+        Ok(resp)
     }
 
     async fn get_public_key(
@@ -296,14 +318,21 @@ impl SbtNotary for SbtNotaryService {
         // Check authentication (allows anonymous by default)
         self.authenticate_health(&request).await?;
 
+        // Check rate limits
+        let rate_limit_info = self.check_rate_limits(&request).await?;
+
         let pubkey = self.signer.public_key();
 
         info!("Public key requested");
 
-        Ok(Response::new(PublicKeyResponse {
+        let mut resp = Response::new(PublicKeyResponse {
             public_key: pubkey.as_bytes().to_vec(),
             notary_id: String::new(), // Could be configured
-        }))
+        });
+        if let Some(info) = &rate_limit_info {
+            insert_rate_limit_headers(&mut resp, info);
+        }
+        Ok(resp)
     }
 
     async fn health(
@@ -313,14 +342,21 @@ impl SbtNotary for SbtNotaryService {
         // Check authentication (allows anonymous by default)
         self.authenticate_health(&request).await?;
 
+        // Check rate limits
+        let rate_limit_info = self.check_rate_limits(&request).await?;
+
         let uptime = self.start_time.elapsed().as_secs();
         let timestamps_issued = self.timestamps_issued.load(Ordering::Relaxed);
 
-        Ok(Response::new(HealthResponse {
+        let mut resp = Response::new(HealthResponse {
             status: HealthStatus::Healthy.into(),
             uptime_seconds: uptime,
             timestamps_issued,
-        }))
+        });
+        if let Some(info) = &rate_limit_info {
+            insert_rate_limit_headers(&mut resp, info);
+        }
+        Ok(resp)
     }
 }
 

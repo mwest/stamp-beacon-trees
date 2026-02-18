@@ -5,8 +5,10 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+use tracing::warn;
 
 use crate::config::RateLimitConfig;
 
@@ -44,6 +46,24 @@ impl TokenBucket {
         }
     }
 
+    /// Try to consume a token, returning remaining token info if successful.
+    /// Returns `Some((tokens_remaining, max_tokens, reset_secs))` or `None` if empty.
+    fn try_consume_with_info(&mut self) -> Option<(f64, f64, f64)> {
+        self.refill();
+        if self.tokens >= 1.0 {
+            self.tokens -= 1.0;
+            let deficit = self.max_tokens - self.tokens;
+            let reset_secs = if self.refill_rate > 0.0 {
+                deficit / self.refill_rate
+            } else {
+                0.0
+            };
+            Some((self.tokens, self.max_tokens, reset_secs))
+        } else {
+            None
+        }
+    }
+
     /// Refill tokens based on elapsed time
     fn refill(&mut self) {
         let now = Instant::now();
@@ -59,6 +79,18 @@ struct ClientEntry {
     last_seen: Instant,
 }
 
+/// Information about the current rate limit state after a successful check.
+/// Used to populate `X-RateLimit-*` response headers.
+#[derive(Debug, Clone)]
+pub struct RateLimitInfo {
+    /// Maximum tokens (per-IP burst capacity)
+    pub limit: u32,
+    /// Remaining tokens in the per-IP bucket (floored to integer)
+    pub remaining: u32,
+    /// Seconds until the per-IP bucket is fully refilled (ceiled to integer)
+    pub reset_secs: u32,
+}
+
 /// Rate limiter with per-IP and global limits
 pub struct RateLimiter {
     config: RateLimitConfig,
@@ -66,6 +98,12 @@ pub struct RateLimiter {
     clients: Arc<RwLock<HashMap<IpAddr, ClientEntry>>>,
     /// Global rate limit bucket
     global: Arc<RwLock<TokenBucket>>,
+    /// Total rate limit checks performed
+    requests_checked: AtomicU64,
+    /// Total per-IP rate limit rejections
+    rejections_per_ip: AtomicU64,
+    /// Total global rate limit rejections
+    rejections_global: AtomicU64,
 }
 
 impl RateLimiter {
@@ -77,20 +115,37 @@ impl RateLimiter {
             config,
             clients: Arc::new(RwLock::new(HashMap::new())),
             global: Arc::new(RwLock::new(global)),
+            requests_checked: AtomicU64::new(0),
+            rejections_per_ip: AtomicU64::new(0),
+            rejections_global: AtomicU64::new(0),
         }
     }
 
-    /// Check if a request from the given IP should be allowed
-    /// Returns Ok(()) if allowed, Err with reason if rate limited
-    pub async fn check_rate_limit(&self, client_ip: IpAddr) -> Result<(), RateLimitError> {
+    /// Check if a request from the given IP should be allowed.
+    /// Returns `RateLimitInfo` with current token state on success,
+    /// or `RateLimitError` if rate limited.
+    pub async fn check_rate_limit(&self, client_ip: IpAddr) -> Result<RateLimitInfo, RateLimitError> {
         if !self.config.enabled {
-            return Ok(());
+            return Ok(RateLimitInfo {
+                limit: self.config.per_ip_burst,
+                remaining: self.config.per_ip_burst,
+                reset_secs: 0,
+            });
         }
+
+        self.requests_checked.fetch_add(1, Ordering::Relaxed);
 
         // Check global rate limit first
         {
             let mut global = self.global.write().await;
             if !global.try_consume() {
+                self.rejections_global.fetch_add(1, Ordering::Relaxed);
+                warn!(
+                    client_ip = %client_ip,
+                    limit_type = "global",
+                    limit_rps = self.config.global_rps,
+                    "Rate limit exceeded"
+                );
                 return Err(RateLimitError::GlobalLimitExceeded);
             }
         }
@@ -107,12 +162,26 @@ impl RateLimiter {
 
             entry.last_seen = Instant::now();
 
-            if !entry.bucket.try_consume() {
-                return Err(RateLimitError::PerIpLimitExceeded);
+            match entry.bucket.try_consume_with_info() {
+                Some((remaining, max_tokens, reset_secs)) => {
+                    Ok(RateLimitInfo {
+                        limit: max_tokens as u32,
+                        remaining: remaining as u32,
+                        reset_secs: reset_secs.ceil() as u32,
+                    })
+                }
+                None => {
+                    self.rejections_per_ip.fetch_add(1, Ordering::Relaxed);
+                    warn!(
+                        client_ip = %client_ip,
+                        limit_type = "per_ip",
+                        limit_rps = self.config.per_ip_rps,
+                        "Rate limit exceeded"
+                    );
+                    Err(RateLimitError::PerIpLimitExceeded)
+                }
             }
         }
-
-        Ok(())
     }
 
     /// Check if request size is within limits
@@ -163,6 +232,21 @@ impl RateLimiter {
     /// Get current number of tracked clients (for metrics)
     pub async fn client_count(&self) -> usize {
         self.clients.read().await.len()
+    }
+
+    /// Get total number of rate limit checks performed
+    pub fn requests_checked(&self) -> u64 {
+        self.requests_checked.load(Ordering::Relaxed)
+    }
+
+    /// Get total per-IP rate limit rejections
+    pub fn rejections_per_ip(&self) -> u64 {
+        self.rejections_per_ip.load(Ordering::Relaxed)
+    }
+
+    /// Get total global rate limit rejections
+    pub fn rejections_global(&self) -> u64 {
+        self.rejections_global.load(Ordering::Relaxed)
     }
 }
 
@@ -276,6 +360,68 @@ mod tests {
         for _ in 0..100 {
             assert!(limiter.check_rate_limit(ip).await.is_ok());
         }
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_info_values() {
+        let limiter = RateLimiter::new(test_config());
+        let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
+        let info = limiter.check_rate_limit(ip).await.unwrap();
+        assert_eq!(info.limit, 20); // per_ip_burst
+        assert_eq!(info.remaining, 19); // 20 - 1 consumed
+        assert!(info.reset_secs > 0); // some time until full
+
+        // Consume more tokens and verify remaining decreases
+        let info2 = limiter.check_rate_limit(ip).await.unwrap();
+        assert_eq!(info2.remaining, 18);
+    }
+
+    #[tokio::test]
+    async fn test_metrics_counters() {
+        let config = RateLimitConfig {
+            enabled: true,
+            per_ip_rps: 1,
+            per_ip_burst: 2,
+            global_rps: 1000,
+            global_burst: 2000,
+            max_request_size: 1024,
+            cleanup_interval_secs: 60,
+            entry_ttl_secs: 300,
+        };
+        let limiter = RateLimiter::new(config);
+        let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
+        assert_eq!(limiter.requests_checked(), 0);
+        assert_eq!(limiter.rejections_per_ip(), 0);
+        assert_eq!(limiter.rejections_global(), 0);
+
+        // Two successful requests
+        assert!(limiter.check_rate_limit(ip).await.is_ok());
+        assert!(limiter.check_rate_limit(ip).await.is_ok());
+        assert_eq!(limiter.requests_checked(), 2);
+        assert_eq!(limiter.rejections_per_ip(), 0);
+
+        // Third request should be rejected (burst = 2)
+        assert!(limiter.check_rate_limit(ip).await.is_err());
+        assert_eq!(limiter.requests_checked(), 3);
+        assert_eq!(limiter.rejections_per_ip(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_disabled_returns_full_info() {
+        let mut config = test_config();
+        config.enabled = false;
+        let limiter = RateLimiter::new(config);
+        let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
+        let info = limiter.check_rate_limit(ip).await.unwrap();
+        assert_eq!(info.limit, 20); // per_ip_burst from test_config
+        assert_eq!(info.remaining, 20); // full capacity when disabled
+        assert_eq!(info.reset_secs, 0);
+
+        // Should not increment counters when disabled
+        assert_eq!(limiter.requests_checked(), 0);
     }
 
     #[tokio::test]
