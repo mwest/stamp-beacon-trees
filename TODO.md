@@ -19,6 +19,7 @@
 - [x] **Added server public key pinning** - `PinMode` enum supporting `None`, `TrustOnFirstUse`, and `Pinned(PublicKey)`. Validates notary public key on each timestamp response. See `sbt-client/src/client.rs`.
 - [x] **Added test server infrastructure** - `TestServer` in `sbt-notary/src/testutil.rs` (behind `test-util` feature) runs an in-process notary with `SoftwareSigner` on a random port.
 - [x] **Completed section 1.4 network tests** - 9 integration tests, 6 error case tests, 3 concurrent tests, and criterion benchmarks. All passing. See `sbt-client/tests/` and `sbt-client/benches/`.
+- [x] **Completed section 2.2 TLS enhancements** - Certificate generation script (`scripts/generate-certs.sh`), TLS certificate pinning with SPKI SHA-256 verification (RFC 7469), TLS test infrastructure with `rcgen` runtime cert generation, 7 TLS integration tests, and `CERTIFICATES.md` documentation. See `sbt-client/src/tls.rs`, `sbt-client/tests/tls_integration.rs`.
 
 ---
 
@@ -85,14 +86,14 @@
 - [x] Add mTLS option for client authentication (via `--client-cert`, `--client-key`)
 - [x] Update `notary.example.toml` with TLS configuration example
 
-#### 2.2 Remaining TLS TODOs
+#### 2.2 Remaining TLS TODOs ✅
 
-- [ ] Add certificate generation script/documentation
-- [ ] Add certificate pinning option
-- [ ] Test certificate rotation
-- [ ] Document certificate management
+- [x] Add certificate generation script/documentation (`scripts/generate-certs.sh`)
+- [x] Add TLS certificate pinning (`--tls-pin` CLI flag, SPKI SHA-256, RFC 7469)
+- [x] Test TLS connections (7 TLS integration tests: TLS, mTLS, cert pin, no CA cert)
+- [x] Document certificate management ([CERTIFICATES.md](CERTIFICATES.md))
 
-**References**: See [SECURITY.md](SECURITY.md)
+**References**: See [SECURITY.md](SECURITY.md), [CERTIFICATES.md](CERTIFICATES.md)
 
 ### 3. Rate Limiting & DoS Protection ✅ COMPLETED
 

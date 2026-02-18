@@ -31,6 +31,13 @@ struct Cli {
     #[arg(long)]
     client_key: Option<PathBuf>,
 
+    /// TLS certificate pin: base64-encoded SHA-256 of server cert's SPKI.
+    /// When set, the client verifies the server certificate's public key
+    /// matches this pin during the TLS handshake (RFC 7469 approach).
+    /// Generate with: scripts/generate-certs.sh or openssl commands.
+    #[arg(long)]
+    tls_pin: Option<String>,
+
     /// API key for authentication
     /// Can also be set via SBT_API_KEY environment variable
     #[arg(long, env = "SBT_API_KEY")]
@@ -91,7 +98,9 @@ enum Commands {
 
 fn build_client(cli: &Cli) -> SbtClient {
     // Check if TLS options are provided
-    let has_tls = cli.ca_cert.is_some() || cli.server.starts_with("https://");
+    let has_tls = cli.ca_cert.is_some()
+        || cli.tls_pin.is_some()
+        || cli.server.starts_with("https://");
 
     let mut client = if has_tls {
         let mut tls_options = if let Some(ca_cert) = &cli.ca_cert {
@@ -107,6 +116,11 @@ fn build_client(cli: &Cli) -> SbtClient {
                 cert.to_string_lossy().to_string(),
                 key.to_string_lossy().to_string(),
             );
+        }
+
+        // Add TLS certificate pinning if provided
+        if let Some(tls_pin) = &cli.tls_pin {
+            tls_options = tls_options.with_tls_cert_pin(tls_pin.clone());
         }
 
         SbtClient::with_tls(cli.server.clone(), tls_options)
