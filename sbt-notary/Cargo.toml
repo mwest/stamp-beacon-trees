@@ -38,6 +38,13 @@ toml = "0.8"
 
 # Cryptographic utilities
 rand = { workspace = true }
+ed25519-dalek = { workspace = true }
+
+# Streaming (for test server)
+tokio-stream = { version = "0.1", features = ["net"] }
+
+[features]
+test-util = []
 
 [build-dependencies]
 tonic-build = "0.12"

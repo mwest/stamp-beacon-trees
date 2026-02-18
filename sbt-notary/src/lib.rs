@@ -12,5 +12,8 @@ pub mod rate_limit;
 pub mod server;
 pub mod tls;
 
+#[cfg(feature = "test-util")]
+pub mod testutil;
+
 pub use config::NotaryConfig;
 pub use server::NotaryServer;

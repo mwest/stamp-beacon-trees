@@ -7,7 +7,7 @@ use sbt_core::{LeafData, NonceGenerator, StampTreeBuilder};
 use sbt_types::{Digest, StampResponse, Timestamp, TimestampProof};
 
 use crate::config::BatchConfig;
-use crate::hsm::HsmSigner;
+use crate::hsm::Signer;
 
 /// A single timestamp request in the batch
 pub struct BatchRequest {
@@ -19,7 +19,7 @@ pub struct BatchRequest {
 /// Batch processor that accumulates requests and builds stamp trees
 pub struct BatchProcessor {
     config: BatchConfig,
-    signer: Arc<HsmSigner>,
+    signer: Arc<dyn Signer>,
     nonce_gen: Arc<RwLock<NonceGenerator>>,
     request_rx: mpsc::Receiver<BatchRequest>,
     pending_requests: Vec<BatchRequest>,
@@ -28,7 +28,7 @@ pub struct BatchProcessor {
 impl BatchProcessor {
     pub fn new(
         config: BatchConfig,
-        signer: Arc<HsmSigner>,
+        signer: Arc<dyn Signer>,
         request_rx: mpsc::Receiver<BatchRequest>,
     ) -> Self {
         let capacity = config.max_batch_size;

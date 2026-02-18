@@ -11,7 +11,7 @@ use tracing::{debug, info};
 
 use crate::auth::{AuthError, Authenticator};
 use crate::batch::BatchRequest;
-use crate::hsm::HsmSigner;
+use crate::hsm::Signer;
 use crate::rate_limit::{RateLimiter, RateLimitError};
 use sbt_types::{Digest, Nonce, PublicKey, Signature, Timestamp as SbtTimestamp};
 use sbt_types::messages::{MerklePath, MerkleNode, TimestampProof};
@@ -33,7 +33,7 @@ pub const API_KEY_HEADER: &str = "x-api-key";
 /// The gRPC service implementation
 pub struct SbtNotaryService {
     request_tx: mpsc::Sender<BatchRequest>,
-    signer: Arc<HsmSigner>,
+    signer: Arc<dyn Signer>,
     rate_limiter: Option<Arc<RateLimiter>>,
     authenticator: Option<Arc<Authenticator>>,
     start_time: Instant,
@@ -42,7 +42,7 @@ pub struct SbtNotaryService {
 
 impl SbtNotaryService {
     /// Create a new gRPC service
-    pub fn new(request_tx: mpsc::Sender<BatchRequest>, signer: Arc<HsmSigner>) -> Self {
+    pub fn new(request_tx: mpsc::Sender<BatchRequest>, signer: Arc<dyn Signer>) -> Self {
         Self {
             request_tx,
             signer,
@@ -56,7 +56,7 @@ impl SbtNotaryService {
     /// Create a new gRPC service with rate limiting
     pub fn with_rate_limiter(
         request_tx: mpsc::Sender<BatchRequest>,
-        signer: Arc<HsmSigner>,
+        signer: Arc<dyn Signer>,
         rate_limiter: Arc<RateLimiter>,
     ) -> Self {
         Self {
@@ -72,7 +72,7 @@ impl SbtNotaryService {
     /// Create a new gRPC service with rate limiting and authentication
     pub fn with_auth(
         request_tx: mpsc::Sender<BatchRequest>,
-        signer: Arc<HsmSigner>,
+        signer: Arc<dyn Signer>,
         rate_limiter: Option<Arc<RateLimiter>>,
         authenticator: Arc<Authenticator>,
     ) -> Self {
