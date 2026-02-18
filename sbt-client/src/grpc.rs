@@ -1,13 +1,14 @@
 //! gRPC client implementation for communicating with SBT notary servers
 
-use tonic::transport::{Channel, Endpoint};
+use std::sync::Arc;
+use tonic::transport::{Channel, Endpoint, Uri};
 use tonic::metadata::MetadataValue;
 use tonic::Request;
 
 use sbt_types::{Digest, Nonce, PublicKey, Signature, Timestamp as SbtTimestamp};
 use sbt_types::messages::{MerklePath, MerkleNode, TimestampProof, StampResponse};
 
-use crate::tls::{TlsOptions, load_client_tls_config};
+use crate::tls::{TlsOptions, load_client_tls_config, build_pinned_rustls_config};
 use crate::{ClientError, Result};
 
 // Include the generated protobuf code
@@ -40,19 +41,60 @@ impl GrpcClient {
 
     /// Connect to a notary server with TLS
     pub async fn connect_with_tls(endpoint: &str, tls_options: &TlsOptions) -> Result<Self> {
-        let tls_config = load_client_tls_config(tls_options)
-            .map_err(|e| ClientError::Network(format!("Failed to load TLS config: {}", e)))?;
+        if tls_options.has_cert_pin() {
+            // Use custom rustls config with SPKI pinning verifier
+            Self::connect_with_pinned_tls(endpoint, tls_options).await
+        } else {
+            // Standard tonic TLS path (no cert pinning)
+            let tls_config = load_client_tls_config(tls_options)
+                .map_err(|e| ClientError::Network(format!("Failed to load TLS config: {}", e)))?;
 
-        let channel = Endpoint::from_shared(endpoint.to_string())
+            let channel = Endpoint::from_shared(endpoint.to_string())
+                .map_err(|e| ClientError::Network(format!("Invalid endpoint: {}", e)))?
+                .tls_config(tls_config)
+                .map_err(|e| ClientError::Network(format!("Failed to configure TLS: {}", e)))?
+                .connect()
+                .await
+                .map_err(|e| ClientError::Network(format!("Failed to connect with TLS: {}", e)))?;
+
+            let client = SbtNotaryClient::new(channel);
+
+            Ok(Self { client, api_key: None })
+        }
+    }
+
+    /// Connect with TLS using a custom rustls config that verifies SPKI pins.
+    ///
+    /// This bypasses tonic's built-in TLS and instead uses a custom tower::Service
+    /// connector with our `SpkiPinVerifier` rustls config, connected via
+    /// `Endpoint::connect_with_connector`.
+    async fn connect_with_pinned_tls(endpoint: &str, tls_options: &TlsOptions) -> Result<Self> {
+        let rustls_config = build_pinned_rustls_config(tls_options)
+            .map_err(|e| ClientError::Network(format!("Failed to build pinned TLS config: {}", e)))?;
+
+        // Parse the endpoint URI to extract the server name for TLS SNI
+        let uri: Uri = endpoint.parse()
+            .map_err(|e| ClientError::Network(format!("Invalid endpoint URI: {}", e)))?;
+        let host = uri.host()
+            .ok_or_else(|| ClientError::Network("No host in endpoint URI".to_string()))?
+            .to_string();
+
+        let tls_connector = tokio_rustls::TlsConnector::from(Arc::new(rustls_config));
+
+        let connector = PinnedTlsConnector {
+            tls: tls_connector,
+            server_name: host,
+        };
+
+        // Use http:// scheme so tonic doesn't try to add its own TLS layer.
+        // Our custom connector handles TLS transparently.
+        let http_endpoint = endpoint.replace("https://", "http://");
+
+        let channel = Endpoint::from_shared(http_endpoint)
             .map_err(|e| ClientError::Network(format!("Invalid endpoint: {}", e)))?
-            .tls_config(tls_config)
-            .map_err(|e| ClientError::Network(format!("Failed to configure TLS: {}", e)))?
-            .connect()
-            .await
-            .map_err(|e| ClientError::Network(format!("Failed to connect with TLS: {}", e)))?;
+            .connect_with_connector_lazy(connector);
 
         let client = SbtNotaryClient::new(channel);
-
         Ok(Self { client, api_key: None })
     }
 
@@ -136,6 +178,70 @@ pub struct HealthStatus {
     pub healthy: bool,
     pub uptime_seconds: u64,
     pub timestamps_issued: u64,
+}
+
+/// Custom tower connector that performs TCP + TLS with our pinned rustls config.
+///
+/// Implements `tower::Service<Uri>` so it can be passed to
+/// `Endpoint::connect_with_connector()`.
+#[derive(Clone)]
+struct PinnedTlsConnector {
+    tls: tokio_rustls::TlsConnector,
+    server_name: String,
+}
+
+impl tower::Service<Uri> for PinnedTlsConnector {
+    type Response = hyper_util::rt::TokioIo<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, uri: Uri) -> Self::Future {
+        let tls = self.tls.clone();
+        let server_name = self.server_name.clone();
+
+        Box::pin(async move {
+            let host = uri.host().unwrap_or(&server_name);
+            let port = uri.port_u16().unwrap_or(443);
+            let addr = format!("{}:{}", host, port);
+
+            // TCP connect
+            let tcp = tokio::net::TcpStream::connect(&addr).await
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                    Box::new(e)
+                })?;
+
+            // Build TLS server name — handle both IP addresses and DNS names.
+            // If the host parses as an IP address, use IpAddress variant;
+            // otherwise use DnsName.
+            let domain: rustls::pki_types::ServerName<'static> =
+                if let Ok(ip) = server_name.parse::<std::net::IpAddr>() {
+                    rustls::pki_types::ServerName::IpAddress(
+                        rustls::pki_types::IpAddr::from(ip),
+                    )
+                } else {
+                    rustls::pki_types::ServerName::try_from(server_name.as_str())
+                        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                            Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+                        })?
+                        .to_owned()
+                };
+
+            // TLS handshake with our custom rustls config (including SPKI pin check)
+            let tls_stream = tls.connect(domain, tcp).await
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+                    Box::new(e)
+                })?;
+
+            Ok(hyper_util::rt::TokioIo::new(tls_stream))
+        })
+    }
 }
 
 // Conversion functions from protobuf to internal types

@@ -10,7 +10,7 @@ pub mod tls;
 pub use client::{SbtClient, RetryConfig, PinMode};
 pub use grpc::HealthStatus;
 pub use storage::ProofStorage;
-pub use tls::TlsOptions;
+pub use tls::{TlsOptions, TlsCertPin, compute_spki_pin, compute_spki_pin_from_pem};
 
 use thiserror::Error;
 

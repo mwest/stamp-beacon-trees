@@ -51,8 +51,13 @@ batch_interval_ms = 1000
 # TLS Configuration (optional - omit this section to disable TLS)
 # WARNING: Running without TLS is insecure for production use!
 #
+# Generate certificates:  ./scripts/generate-certs.sh ./certs
+# Full guide:             CERTIFICATES.md
+#
 # [tls]
 # # Path to server certificate file (PEM format)
+# # Self-signed: ./certs/server.crt (from generate-certs.sh)
+# # Let's Encrypt: /etc/letsencrypt/live/<domain>/fullchain.pem
 # cert_path = "/etc/sbt/server.crt"
 #
 # # Path to server private key file (PEM format)
@@ -64,6 +69,12 @@ batch_interval_ms = 1000
 #
 # # Require client certificates (mTLS) - only applies if ca_cert_path is set
 # # require_client_cert = true
+#
+# Client CLI options for TLS:
+#   --ca-cert PATH       CA certificate for server verification
+#   --client-cert PATH   Client certificate for mTLS
+#   --client-key PATH    Client private key for mTLS
+#   --tls-pin PIN        SPKI pin (base64 SHA-256) for certificate pinning (RFC 7469)
 
 # Rate Limiting Configuration (optional - omit this section to disable rate limiting)
 # Protects the server from DoS attacks using token bucket algorithm

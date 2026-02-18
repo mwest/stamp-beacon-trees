@@ -43,11 +43,16 @@ ed25519-dalek = { workspace = true }
 # Streaming (for test server)
 tokio-stream = { version = "0.1", features = ["net"] }
 
+# Optional: test certificate generation (enabled by test-util feature)
+rcgen = { version = "0.13", optional = true }
+time = { version = "0.3", optional = true }
+
 [features]
-test-util = []
+test-util = ["dep:rcgen", "dep:time"]
 
 [build-dependencies]
 tonic-build = "0.12"
 
 [dev-dependencies]
 proptest = { workspace = true }
+rcgen = "0.13"

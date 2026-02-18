@@ -38,14 +38,16 @@
 
 **Attack**: Attacker intercepts and modifies requests/responses.
 
-**Current Status**: ⚠️ VULNERABLE (no TLS)
+**Status**: ✅ Mitigated
 
-**Mitigations Needed**:
-- [ ] Implement TLS for all network communication
-- [ ] Consider mutual TLS for authentication
-- [ ] Pin notary's public key in client
+**Mitigations Implemented**:
+- [x] TLS for all network communication (server + client)
+- [x] Mutual TLS (mTLS) for client certificate authentication
+- [x] TLS certificate pinning (SPKI SHA-256, RFC 7469 approach)
+- [x] Application-level notary public key pinning (TOFU + pre-configured)
+- [x] Certificate generation tooling (`scripts/generate-certs.sh`)
 
-**Temporary Workaround**: Run on trusted network only
+**See**: [CERTIFICATES.md](CERTIFICATES.md) for certificate management details
 
 ### 3. Sibling Attack
 
@@ -109,13 +111,15 @@
 
 **Attack**: Flood notary with requests.
 
-**Current Status**: ⚠️ No rate limiting
+**Status**: ✅ Partially mitigated
 
-**Mitigations Needed**:
-- [ ] Per-client rate limiting
-- [ ] Global rate limiting
-- [ ] Request size limits
-- [ ] Connection limits (already configurable)
+**Mitigations Implemented**:
+- [x] Per-client IP rate limiting (token bucket)
+- [x] Global rate limiting (token bucket)
+- [x] Request size limits
+- [x] Connection limits (configurable)
+
+**Remaining**:
 - [ ] Proof-of-work for requests (optional)
 
 ### 8. Tree Forgery
@@ -345,19 +349,20 @@
 
 ### High Priority
 
-1. **TLS Implementation**
-   - Encrypt all network traffic
-   - Mutual authentication option
+1. **TLS Implementation** ✅ COMPLETED
+   - TLS/mTLS for all network traffic
+   - Certificate pinning (SPKI + app-level)
+   - See [CERTIFICATES.md](CERTIFICATES.md)
 
 2. **Clock Synchronization**
    - Roughtime-style secure time
    - Multiple time sources
    - Outlier detection
 
-3. **Rate Limiting**
-   - Per-client limits
-   - Global limits
-   - DDoS protection
+3. **Rate Limiting** ✅ COMPLETED
+   - Per-client IP limits (token bucket)
+   - Global limits (token bucket)
+   - Request size enforcement
 
 ### Medium Priority
 
@@ -425,9 +430,9 @@ If you discover a security issue:
 
 Before deploying to production:
 
-- [ ] TLS enabled and configured
+- [x] TLS enabled and configured
 - [ ] HSM is hardware (not SoftHSM)
-- [ ] Rate limiting implemented
+- [x] Rate limiting implemented
 - [ ] Monitoring and alerting configured
 - [ ] Security audit completed
 - [ ] Incident response plan documented
@@ -438,9 +443,9 @@ Before deploying to production:
 
 ## Conclusion
 
-The current implementation provides strong cryptographic security but lacks operational security features (TLS, rate limiting, clock sync).
+The current implementation provides strong cryptographic security with TLS encryption, certificate pinning, mTLS authentication, and rate limiting. Remaining gaps are clock synchronization and operational monitoring.
 
-**Current Status**: Suitable for testing and development only.
+**Current Status**: Suitable for controlled deployments with trusted time sources.
 
 **Production Readiness**: Requires implementation of TODO items above.
 
