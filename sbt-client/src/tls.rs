@@ -1,6 +1,5 @@
 //! TLS configuration for the SBT client
 
-use std::path::Path;
 use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 use tracing::info;
 

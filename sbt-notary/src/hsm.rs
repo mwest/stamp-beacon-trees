@@ -41,7 +41,7 @@ pub enum HsmError {
 
 /// Inner HSM state that is not Send/Sync
 struct HsmInner {
-    pkcs11: Pkcs11,
+    _pkcs11: Pkcs11,
     session: Session,
     private_key_handle: ObjectHandle,
 }
@@ -98,7 +98,7 @@ impl HsmSigner {
             .map_err(|_| HsmError::Other("Invalid public key format".to_string()))?;
 
         let inner = HsmInner {
-            pkcs11,
+            _pkcs11: pkcs11,
             session,
             private_key_handle,
         };

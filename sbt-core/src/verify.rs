@@ -57,7 +57,7 @@ fn verify_signature(
 
     verifying_key
         .verify(message, &sig)
-        .map_err(|e| VerificationError::InvalidSignature)?;
+        .map_err(|_| VerificationError::InvalidSignature)?;
 
     Ok(())
 }
@@ -81,7 +81,7 @@ mod tests {
         let signature = signing_key.sign(message);
 
         let pubkey = PublicKey::new(*verifying_key.as_bytes());
-        let sig = Signature::new(*signature.to_bytes());
+        let sig = Signature::new(signature.to_bytes());
 
         assert!(verify_signature(&pubkey, &sig, message).is_ok());
 
@@ -116,7 +116,7 @@ mod tests {
             },
             delta_nanos: 0,
             root_timestamp: timestamp,
-            signature: Signature::new(*signature.to_bytes()),
+            signature: Signature::new(signature.to_bytes()),
             notary_pubkey: PublicKey::new(*verifying_key.as_bytes()),
         };
 
@@ -153,7 +153,7 @@ mod tests {
             },
             delta_nanos: 0,
             root_timestamp: timestamp,
-            signature: Signature::new(*signature.to_bytes()),
+            signature: Signature::new(signature.to_bytes()),
             notary_pubkey: PublicKey::new(*verifying_key.as_bytes()),
         };
 

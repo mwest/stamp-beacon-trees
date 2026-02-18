@@ -101,8 +101,6 @@ impl BatchProcessor {
         // Create leaves with timing deltas
         // For now, we assign deltas based on order received
         // In a production system, actual processing times would be measured
-        let start_time = root_timestamp.add_nanos(-(batch_size as i64 / 2) * 1000);
-
         for (i, request) in self.pending_requests.iter().enumerate() {
             let nonce = nonce_gen.generate();
             let delta_nanos = (i as i64 * 1000) - (batch_size as i64 / 2 * 1000);

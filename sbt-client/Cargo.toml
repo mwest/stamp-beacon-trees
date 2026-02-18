@@ -39,5 +39,8 @@ hex = { workspace = true }
 # Storage
 sled = "0.34"
 
+[dev-dependencies]
+tempfile = "3.25"
+
 [build-dependencies]
 tonic-build = "0.12"

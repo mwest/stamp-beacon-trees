@@ -11,6 +11,9 @@
 - [x] **Made `Digest` type `Copy`** - Optimized by adding `Copy` derive and removing unnecessary `.clone()` calls.
 - [x] **Improved unsafe unwrap() handling** - Replaced bare `unwrap()` with `while let` pattern and `expect()` with messages in `sbt-core/src/merkle.rs`.
 - [x] **Added thread safety documentation** - Documented `NonceGenerator` thread safety requirements in `sbt-core/src/nonce.rs`.
+- [x] **Fixed Merkle path generation for odd-sized trees** - `generate_path()` was missing the duplicated sibling for odd nodes at level boundaries, causing verification failures. Fixed in `sbt-core/src/merkle.rs`.
+- [x] **Fixed test compilation errors** - Added missing `Hash` derive on `Nonce` type, fixed `Signature::new(*sig.to_bytes())` dereference errors in `sbt-core/src/verify.rs`, added missing `tempfile` dev-dependency to `sbt-client`.
+- [x] **Cleaned up all compiler warnings** - Removed unused imports, variables, and dead code across `sbt-client`, `sbt-notary`, and `sbt-core`.
 
 ---
 
@@ -571,4 +574,4 @@
 - See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup
 - Update this file as priorities change
 
-**Last Updated**: 2026-01-21
+**Last Updated**: 2026-02-18
