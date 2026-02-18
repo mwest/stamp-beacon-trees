@@ -10,7 +10,7 @@ use crate::auth::Authenticator;
 use crate::batch::{BatchProcessor, BatchRequest};
 use crate::config::NotaryConfig;
 use crate::grpc::{SbtNotaryService, proto::sbt_notary_server::SbtNotaryServer};
-use crate::hsm::HsmSigner;
+use crate::hsm::{HsmSigner, Signer};
 use crate::rate_limit::RateLimiter;
 use crate::tls::load_server_tls_config;
 use sbt_types::{StampRequest, StampResponse};
@@ -18,7 +18,7 @@ use sbt_types::{StampRequest, StampResponse};
 /// The main notary server
 pub struct NotaryServer {
     config: NotaryConfig,
-    signer: Arc<HsmSigner>,
+    signer: Arc<dyn Signer>,
     request_tx: mpsc::Sender<BatchRequest>,
     rate_limiter: Option<Arc<RateLimiter>>,
     authenticator: Option<Arc<Authenticator>>,
@@ -45,7 +45,7 @@ impl NotaryServer {
 
         info!("HSM signer initialized, public key: {}", signer.public_key());
 
-        let signer = Arc::new(signer);
+        let signer: Arc<dyn Signer> = Arc::new(signer);
 
         // Create batch processor channel
         let (request_tx, request_rx) = mpsc::channel(config.batch.max_batch_size * 2);

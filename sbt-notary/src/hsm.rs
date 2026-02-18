@@ -12,6 +12,14 @@ use std::sync::Mutex;
 use thiserror::Error;
 use sbt_types::{PublicKey, Signature};
 
+/// Trait for signing operations, abstracting over HSM and software signers
+pub trait Signer: Send + Sync {
+    /// Sign a message and return the signature
+    fn sign(&self, message: &[u8]) -> Result<Signature, HsmError>;
+    /// Get the public key corresponding to the signing key
+    fn public_key(&self) -> &PublicKey;
+}
+
 #[derive(Error, Debug)]
 pub enum HsmError {
     #[error("PKCS#11 initialization failed: {0}")]
@@ -180,6 +188,16 @@ impl HsmSigner {
     }
 }
 
+impl Signer for HsmSigner {
+    fn sign(&self, message: &[u8]) -> Result<Signature, HsmError> {
+        self.sign(message)
+    }
+
+    fn public_key(&self) -> &PublicKey {
+        self.public_key()
+    }
+}
+
 impl Drop for HsmSigner {
     fn drop(&mut self) {
         // Logout and cleanup
@@ -188,6 +206,38 @@ impl Drop for HsmSigner {
             // Note: finalize() takes ownership, which we can't do in Drop
             // The Pkcs11 will be finalized when it's dropped
         }
+    }
+}
+
+/// Software-based Ed25519 signer for testing (no HSM required)
+pub struct SoftwareSigner {
+    signing_key: ed25519_dalek::SigningKey,
+    public_key: PublicKey,
+}
+
+impl SoftwareSigner {
+    /// Create a new software signer with a random keypair
+    pub fn generate() -> Self {
+        use rand::rngs::OsRng;
+        let signing_key = ed25519_dalek::SigningKey::generate(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
+        let public_key = PublicKey::new(verifying_key.to_bytes());
+        Self {
+            signing_key,
+            public_key,
+        }
+    }
+}
+
+impl Signer for SoftwareSigner {
+    fn sign(&self, message: &[u8]) -> Result<Signature, HsmError> {
+        use ed25519_dalek::Signer as _;
+        let sig = self.signing_key.sign(message);
+        Ok(Signature::new(sig.to_bytes()))
+    }
+
+    fn public_key(&self) -> &PublicKey {
+        &self.public_key
     }
 }
 

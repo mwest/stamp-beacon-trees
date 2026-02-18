@@ -39,8 +39,17 @@ hex = { workspace = true }
 # Storage
 sled = "0.34"
 
+# Retry jitter
+rand = { workspace = true }
+
 [dev-dependencies]
 tempfile = "3.25"
+criterion = { workspace = true }
+sbt-notary = { path = "../sbt-notary", features = ["test-util"] }
+
+[[bench]]
+name = "throughput"
+harness = false
 
 [build-dependencies]
 tonic-build = "0.12"

@@ -14,6 +14,11 @@
 - [x] **Fixed Merkle path generation for odd-sized trees** - `generate_path()` was missing the duplicated sibling for odd nodes at level boundaries, causing verification failures. Fixed in `sbt-core/src/merkle.rs`.
 - [x] **Fixed test compilation errors** - Added missing `Hash` derive on `Nonce` type, fixed `Signature::new(*sig.to_bytes())` dereference errors in `sbt-core/src/verify.rs`, added missing `tempfile` dev-dependency to `sbt-client`.
 - [x] **Cleaned up all compiler warnings** - Removed unused imports, variables, and dead code across `sbt-client`, `sbt-notary`, and `sbt-core`.
+- [x] **Added Signer trait abstraction** - Extracted `Signer` trait from `HsmSigner`, added `SoftwareSigner` for testing without HSM hardware. Changed `Arc<HsmSigner>` to `Arc<dyn Signer>` across batch, gRPC, and server modules.
+- [x] **Added retry logic with exponential backoff** - `RetryConfig` with configurable max retries, initial/max backoff, multiplier, and jitter. Applied to `timestamp()`, `get_public_key()`, and `health()`. See `sbt-client/src/client.rs`.
+- [x] **Added server public key pinning** - `PinMode` enum supporting `None`, `TrustOnFirstUse`, and `Pinned(PublicKey)`. Validates notary public key on each timestamp response. See `sbt-client/src/client.rs`.
+- [x] **Added test server infrastructure** - `TestServer` in `sbt-notary/src/testutil.rs` (behind `test-util` feature) runs an in-process notary with `SoftwareSigner` on a random port.
+- [x] **Completed section 1.4 network tests** - 9 integration tests, 6 error case tests, 3 concurrent tests, and criterion benchmarks. All passing. See `sbt-client/tests/` and `sbt-client/benches/`.
 
 ---
 
@@ -55,12 +60,12 @@
 #### 1.4 Remaining Network TODOs
 
 - [x] Configure TLS/mTLS
-- [ ] Add retry logic with exponential backoff
-- [ ] Add server public key pinning
-- [ ] End-to-end integration tests
-- [ ] Test error cases (timeout, connection refused, etc.)
-- [ ] Test concurrent requests
-- [ ] Load testing (benchmark batch performance)
+- [x] Add retry logic with exponential backoff
+- [x] Add server public key pinning
+- [x] End-to-end integration tests
+- [x] Test error cases (timeout, connection refused, etc.)
+- [x] Test concurrent requests
+- [x] Load testing (benchmark batch performance)
 
 ---
 
