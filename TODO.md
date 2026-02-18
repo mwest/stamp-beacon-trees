@@ -20,6 +20,7 @@
 - [x] **Added test server infrastructure** - `TestServer` in `sbt-notary/src/testutil.rs` (behind `test-util` feature) runs an in-process notary with `SoftwareSigner` on a random port.
 - [x] **Completed section 1.4 network tests** - 9 integration tests, 6 error case tests, 3 concurrent tests, and criterion benchmarks. All passing. See `sbt-client/tests/` and `sbt-client/benches/`.
 - [x] **Completed section 2.2 TLS enhancements** - Certificate generation script (`scripts/generate-certs.sh`), TLS certificate pinning with SPKI SHA-256 verification (RFC 7469), TLS test infrastructure with `rcgen` runtime cert generation, 7 TLS integration tests, and `CERTIFICATES.md` documentation. See `sbt-client/src/tls.rs`, `sbt-client/tests/tls_integration.rs`.
+- [x] **Completed section 3.3 rate limiting enhancements** - Rate limit response headers (`x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-reset`) on all gRPC endpoints, structured violation logging with client IP, and `AtomicU64` metrics counters (`requests_checked`, `rejections_per_ip`, `rejections_global`). See `sbt-notary/src/rate_limit.rs`, `sbt-notary/src/grpc.rs`.
 
 ---
 
@@ -117,9 +118,9 @@
 
 #### 3.3 Remaining Rate Limiting TODOs
 
-- [ ] Add rate limit headers in responses (X-RateLimit-*)
-- [ ] Log rate limit violations with client IP
-- [ ] Add metrics for monitoring (rate limit hits, active clients)
+- [x] Add rate limit headers in responses (`x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-reset`)
+- [x] Log rate limit violations with client IP (structured `tracing::warn!` with `client_ip`, `limit_type`, `limit_rps`)
+- [x] Add metrics for monitoring (`requests_checked`, `rejections_per_ip`, `rejections_global`, `client_count`)
 - [ ] Optional: Proof-of-Work scheme for anti-spam
 
 ### 4. Authentication & Authorization ✅ COMPLETED
