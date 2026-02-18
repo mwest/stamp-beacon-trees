@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use tokio::sync::{mpsc, oneshot};
 use tonic::{Request, Response, Status};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::auth::{AuthError, Authenticator};
 use crate::batch::BatchRequest;

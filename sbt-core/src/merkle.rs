@@ -78,12 +78,19 @@ impl StampTree {
                 index - 1
             };
 
-            // Get the sibling hash (if it exists)
+            // Get the sibling hash
             if sibling_index < level_size {
                 let is_left = sibling_index < index;
                 siblings.push(MerkleNode {
                     hash: self.levels[level][sibling_index],
                     is_left,
+                });
+            } else {
+                // Odd node at end of level: during tree construction this node
+                // was duplicated, so the sibling is itself (always on the right).
+                siblings.push(MerkleNode {
+                    hash: self.levels[level][index],
+                    is_left: false,
                 });
             }
 

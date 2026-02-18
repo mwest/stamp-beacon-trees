@@ -202,7 +202,7 @@ impl fmt::Display for PublicKey {
 }
 
 /// A cryptographic nonce (32 bytes of randomness)
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Nonce([u8; 32]);
 
 // Custom serde implementation for Nonce - serialize as hex for readability
