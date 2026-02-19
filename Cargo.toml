@@ -49,6 +49,9 @@ x509-parser = "0.16"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Security
+zeroize = { version = "1.8", features = ["derive"] }
+
 # Testing
 proptest = "1.4"
 criterion = "0.5"

@@ -21,6 +21,7 @@
 - [x] **Completed section 1.4 network tests** - 9 integration tests, 6 error case tests, 3 concurrent tests, and criterion benchmarks. All passing. See `sbt-client/tests/` and `sbt-client/benches/`.
 - [x] **Completed section 2.2 TLS enhancements** - Certificate generation script (`scripts/generate-certs.sh`), TLS certificate pinning with SPKI SHA-256 verification (RFC 7469), TLS test infrastructure with `rcgen` runtime cert generation, 7 TLS integration tests, and `CERTIFICATES.md` documentation. See `sbt-client/src/tls.rs`, `sbt-client/tests/tls_integration.rs`.
 - [x] **Completed section 3.3 rate limiting enhancements** - Rate limit response headers (`x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-reset`) on all gRPC endpoints, structured violation logging with client IP, and `AtomicU64` metrics counters (`requests_checked`, `rejections_per_ip`, `rejections_global`). See `sbt-notary/src/rate_limit.rs`, `sbt-notary/src/grpc.rs`.
+- [x] **Completed section 5 HSM security improvements** - PIN zeroization using `Zeroizing<String>` wrapper from the `zeroize` crate, HSM error message sanitization (full details in debug builds, category-only in release builds via `sanitize_error()`), and improved `Drop` implementation with `tracing::error!` logging for logout/lock failures. See `sbt-notary/src/hsm.rs`.
 
 ---
 
@@ -151,30 +152,21 @@
 
 ## Security Enhancements
 
-### 5. HSM Security Improvements 🔒 MEDIUM PRIORITY
+### 5. HSM Security Improvements ✅ COMPLETED
 
-**Status**: Partially implemented
+**Status**: Completed
 **File**: `sbt-notary/src/hsm.rs`
 
 #### 5.1 PIN Security
 
-- [ ] Use `zeroize` crate to clear PIN from memory after use
-- [ ] Ensure PINs are never logged
-- [ ] Consider memory-locked storage for sensitive data
+- [x] Use `zeroize` crate to clear PIN from memory after use
+- [x] Ensure PINs are never logged
+- [ ] Consider memory-locked storage for sensitive data (future enhancement)
 
 #### 5.2 Error Handling
 
-- [ ] Sanitize HSM error messages in production (avoid information leakage)
-- [ ] Improve `Drop` implementation to handle logout/finalize errors:
-  ```rust
-  impl Drop for HsmSigner {
-      fn drop(&mut self) {
-          if let Err(e) = self.session.logout() {
-              tracing::error!("Failed to logout HSM session: {}", e);
-          }
-      }
-  }
-  ```
+- [x] Sanitize HSM error messages in production (avoid information leakage)
+- [x] Improve `Drop` implementation to handle logout/finalize errors
 
 ---
 
