@@ -57,4 +57,15 @@ mod tests {
             assert!(nonces.insert(nonce), "Duplicate nonce generated");
         }
     }
+
+    #[test]
+    fn test_nonce_uniqueness_10k() {
+        let mut gen = NonceGenerator::new();
+        let mut nonces = std::collections::HashSet::new();
+
+        for _ in 0..10_000 {
+            let nonce = gen.generate();
+            assert!(nonces.insert(nonce), "Duplicate nonce in 10k set");
+        }
+    }
 }

@@ -160,4 +160,114 @@ mod tests {
         // This should fail because the Merkle path doesn't match the signature
         assert!(verify_proof(&proof).is_err());
     }
+
+    // === Property-based tests ===
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Valid single-leaf proof always verifies with arbitrary digest/nonce/timestamp.
+        #[test]
+        fn prop_valid_proof_verifies(
+            digest_bytes in prop::array::uniform32(any::<u8>()),
+            nonce_bytes in prop::array::uniform32(any::<u8>()),
+            seconds in 0i64..4_000_000_000i64,
+            nanos in 0u32..1_000_000_000u32
+        ) {
+            let mut rng = rand::thread_rng();
+            let signing_key = SigningKey::generate(&mut rng);
+            let verifying_key = signing_key.verifying_key();
+
+            let digest = Digest::new(digest_bytes);
+            let nonce = Nonce::new(nonce_bytes);
+            let timestamp = Timestamp::new(seconds, nanos).unwrap();
+
+            let leaf_hash = sbt_types::messages::compute_leaf_hash(&digest, &nonce);
+            let message = build_sign_message(&leaf_hash, &timestamp);
+            let signature = signing_key.sign(&message);
+
+            let proof = TimestampProof {
+                digest,
+                nonce,
+                merkle_path: MerklePath { leaf_index: 0, siblings: vec![] },
+                delta_nanos: 0,
+                root_timestamp: timestamp,
+                signature: Signature::new(signature.to_bytes()),
+                notary_pubkey: PublicKey::new(*verifying_key.as_bytes()),
+            };
+
+            prop_assert!(verify_proof(&proof).is_ok());
+        }
+
+        /// Mutating any byte in the signature causes verification failure.
+        #[test]
+        fn prop_signature_mutation_detected(
+            mutate_index in 0usize..64,
+            mutate_xor in 1u8..=255u8
+        ) {
+            let mut rng = rand::thread_rng();
+            let signing_key = SigningKey::generate(&mut rng);
+            let verifying_key = signing_key.verifying_key();
+
+            let digest = Digest::new([1u8; 32]);
+            let nonce = Nonce::new([2u8; 32]);
+            let timestamp = Timestamp::new(1000, 0).unwrap();
+
+            let leaf_hash = sbt_types::messages::compute_leaf_hash(&digest, &nonce);
+            let message = build_sign_message(&leaf_hash, &timestamp);
+            let signature = signing_key.sign(&message);
+
+            let mut sig_bytes = signature.to_bytes();
+            sig_bytes[mutate_index] ^= mutate_xor;
+
+            let proof = TimestampProof {
+                digest,
+                nonce,
+                merkle_path: MerklePath { leaf_index: 0, siblings: vec![] },
+                delta_nanos: 0,
+                root_timestamp: timestamp,
+                signature: Signature::new(sig_bytes),
+                notary_pubkey: PublicKey::new(*verifying_key.as_bytes()),
+            };
+
+            prop_assert!(verify_proof(&proof).is_err());
+        }
+
+        /// Adding a spurious Merkle sibling causes verification failure.
+        #[test]
+        fn prop_spurious_sibling_detected(
+            sibling_bytes in prop::array::uniform32(any::<u8>()),
+            is_left in any::<bool>()
+        ) {
+            let mut rng = rand::thread_rng();
+            let signing_key = SigningKey::generate(&mut rng);
+            let verifying_key = signing_key.verifying_key();
+
+            let digest = Digest::new([1u8; 32]);
+            let nonce = Nonce::new([2u8; 32]);
+            let timestamp = Timestamp::new(1000, 0).unwrap();
+
+            let leaf_hash = sbt_types::messages::compute_leaf_hash(&digest, &nonce);
+            let message = build_sign_message(&leaf_hash, &timestamp);
+            let signature = signing_key.sign(&message);
+
+            let proof = TimestampProof {
+                digest,
+                nonce,
+                merkle_path: MerklePath {
+                    leaf_index: 0,
+                    siblings: vec![MerkleNode {
+                        hash: Digest::new(sibling_bytes),
+                        is_left,
+                    }],
+                },
+                delta_nanos: 0,
+                root_timestamp: timestamp,
+                signature: Signature::new(signature.to_bytes()),
+                notary_pubkey: PublicKey::new(*verifying_key.as_bytes()),
+            };
+
+            prop_assert!(verify_proof(&proof).is_err());
+        }
+    }
 }

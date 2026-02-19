@@ -17,3 +17,11 @@ rand = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand = { workspace = true }
+criterion = { workspace = true }
+serde_json = { workspace = true }
+
+[[bench]]
+name = "core_benchmarks"
+harness = false
