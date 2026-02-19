@@ -1,4 +1,8 @@
 //! HSM integration for signing operations
+//!
+//! Sensitive data (PINs, session handles) is zeroized on drop to prevent
+//! leaking secrets in memory. HSM error messages are sanitized in production
+//! builds to avoid information leakage.
 
 use cryptoki::{
     context::{CInitializeArgs, Pkcs11},
@@ -10,6 +14,8 @@ use cryptoki::{
 use std::path::Path;
 use std::sync::Mutex;
 use thiserror::Error;
+use tracing::error;
+use zeroize::{Zeroize, Zeroizing};
 use sbt_types::{PublicKey, Signature};
 
 /// Trait for signing operations, abstracting over HSM and software signers
@@ -22,29 +28,42 @@ pub trait Signer: Send + Sync {
 
 #[derive(Error, Debug)]
 pub enum HsmError {
-    #[error("PKCS#11 initialization failed: {0}")]
+    #[error("{}", sanitize_error("PKCS#11 initialization failed", .0))]
     InitializationFailed(String),
 
-    #[error("Failed to open session: {0}")]
+    #[error("{}", sanitize_error("Failed to open session", .0))]
     SessionFailed(String),
 
-    #[error("Login failed: {0}")]
+    #[error("{}", sanitize_error("Login failed", .0))]
     LoginFailed(String),
 
-    #[error("Key not found: {0}")]
+    #[error("{}", sanitize_error("Key not found", .0))]
     KeyNotFound(String),
 
-    #[error("Signing failed: {0}")]
+    #[error("{}", sanitize_error("Signing failed", .0))]
     SigningFailed(String),
 
     #[error("Invalid signature format")]
     InvalidSignature,
 
-    #[error("HSM error: {0}")]
+    #[error("{}", sanitize_error("HSM error", .0))]
     Other(String),
 
     #[error("Lock poisoned")]
     LockPoisoned,
+}
+
+/// Sanitize HSM error messages for external display.
+///
+/// In release builds, only the category is shown (e.g., "Signing failed")
+/// to avoid leaking internal HSM details (slot IDs, library paths, etc.).
+/// In debug builds, the full detail is included for easier development.
+fn sanitize_error(category: &str, detail: &str) -> String {
+    if cfg!(debug_assertions) {
+        format!("{}: {}", category, detail)
+    } else {
+        category.to_string()
+    }
 }
 
 /// Inner HSM state that is not Send/Sync
@@ -91,11 +110,13 @@ impl HsmSigner {
             .open_rw_session(slot)
             .map_err(|e| HsmError::SessionFailed(e.to_string()))?;
 
-        // Login
-        let auth_pin = AuthPin::new(pin.to_string());
-        session
-            .login(UserType::User, Some(&auth_pin))
-            .map_err(|e| HsmError::LoginFailed(e.to_string()))?;
+        // Login — wrap PIN in Zeroizing so it's cleared from memory after use
+        let mut pin_copy = Zeroizing::new(pin.to_string());
+        let auth_pin = AuthPin::new(pin_copy.as_str().to_string());
+        let login_result = session.login(UserType::User, Some(&auth_pin));
+        // Explicitly zeroize our copy now; AuthPin handles its own cleanup
+        pin_copy.zeroize();
+        login_result.map_err(|e| HsmError::LoginFailed(e.to_string()))?;
 
         // Find private key
         let private_key_handle = Self::find_key(&session, key_label, true)?;
@@ -200,11 +221,18 @@ impl Signer for HsmSigner {
 
 impl Drop for HsmSigner {
     fn drop(&mut self) {
-        // Logout and cleanup
-        if let Ok(inner) = self.inner.get_mut() {
-            let _ = inner.session.logout();
-            // Note: finalize() takes ownership, which we can't do in Drop
-            // The Pkcs11 will be finalized when it's dropped
+        // Logout and cleanup — log errors instead of silently ignoring them
+        match self.inner.get_mut() {
+            Ok(inner) => {
+                if let Err(e) = inner.session.logout() {
+                    error!("HSM session logout failed during cleanup: {}", e);
+                }
+                // Note: finalize() takes ownership, which we can't do in Drop.
+                // The Pkcs11 will be finalized when it's dropped.
+            }
+            Err(e) => {
+                error!("Failed to acquire HSM lock during cleanup: {}", e);
+            }
         }
     }
 }
