@@ -327,6 +327,7 @@ impl fmt::Display for Timestamp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_digest_roundtrip() {
@@ -345,5 +346,192 @@ mod tests {
 
         let diff = t2.diff_nanos(&t1);
         assert_eq!(diff, 1_000_000_000);
+    }
+
+    // === Proptest strategies ===
+
+    prop_compose! {
+        fn arb_digest()(bytes in prop::array::uniform32(any::<u8>())) -> Digest {
+            Digest::new(bytes)
+        }
+    }
+
+    prop_compose! {
+        fn arb_nonce()(bytes in prop::array::uniform32(any::<u8>())) -> Nonce {
+            Nonce::new(bytes)
+        }
+    }
+
+    prop_compose! {
+        fn arb_signature()(bytes in prop::collection::vec(any::<u8>(), 64)) -> Signature {
+            let mut arr = [0u8; 64];
+            arr.copy_from_slice(&bytes);
+            Signature::new(arr)
+        }
+    }
+
+    prop_compose! {
+        fn arb_public_key()(bytes in prop::array::uniform32(any::<u8>())) -> PublicKey {
+            PublicKey::new(bytes)
+        }
+    }
+
+    prop_compose! {
+        fn arb_timestamp()(
+            seconds in 0i64..=4_000_000_000i64,
+            nanos in 0u32..1_000_000_000u32
+        ) -> Timestamp {
+            Timestamp::new(seconds, nanos).unwrap()
+        }
+    }
+
+    // === Serde JSON roundtrip ===
+
+    proptest! {
+        #[test]
+        fn prop_digest_serde_roundtrip(d in arb_digest()) {
+            let json = serde_json::to_string(&d).unwrap();
+            let parsed: Digest = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(d, parsed);
+        }
+
+        #[test]
+        fn prop_signature_serde_roundtrip(s in arb_signature()) {
+            let json = serde_json::to_string(&s).unwrap();
+            let parsed: Signature = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(s, parsed);
+        }
+
+        #[test]
+        fn prop_public_key_serde_roundtrip(pk in arb_public_key()) {
+            let json = serde_json::to_string(&pk).unwrap();
+            let parsed: PublicKey = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(pk, parsed);
+        }
+
+        #[test]
+        fn prop_nonce_serde_roundtrip(n in arb_nonce()) {
+            let json = serde_json::to_string(&n).unwrap();
+            let parsed: Nonce = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(n, parsed);
+        }
+
+        #[test]
+        fn prop_timestamp_serde_roundtrip(ts in arb_timestamp()) {
+            let json = serde_json::to_string(&ts).unwrap();
+            let parsed: Timestamp = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(ts, parsed);
+        }
+    }
+
+    // === Hex roundtrip ===
+
+    proptest! {
+        #[test]
+        fn prop_digest_hex_roundtrip(d in arb_digest()) {
+            let hex = d.to_hex();
+            let parsed = Digest::from_hex(&hex).unwrap();
+            prop_assert_eq!(d, parsed);
+        }
+
+        #[test]
+        fn prop_signature_hex_roundtrip(s in arb_signature()) {
+            let hex = s.to_hex();
+            let parsed = Signature::from_hex(&hex).unwrap();
+            prop_assert_eq!(s, parsed);
+        }
+
+        #[test]
+        fn prop_public_key_hex_roundtrip(pk in arb_public_key()) {
+            let hex = pk.to_hex();
+            let parsed = PublicKey::from_hex(&hex).unwrap();
+            prop_assert_eq!(pk, parsed);
+        }
+
+        #[test]
+        fn prop_nonce_hex_roundtrip(n in arb_nonce()) {
+            let hex = n.to_hex();
+            let parsed = Nonce::from_hex(&hex).unwrap();
+            prop_assert_eq!(n, parsed);
+        }
+    }
+
+    // === Timestamp arithmetic properties ===
+
+    proptest! {
+        #[test]
+        fn prop_timestamp_add_nanos_roundtrip(
+            ts in arb_timestamp(),
+            delta in -1_000_000_000_000i64..1_000_000_000_000i64
+        ) {
+            let added = ts.add_nanos(delta);
+            let diff = added.diff_nanos(&ts);
+            prop_assert_eq!(diff, delta);
+        }
+
+        #[test]
+        fn prop_timestamp_add_zero_identity(ts in arb_timestamp()) {
+            let same = ts.add_nanos(0);
+            prop_assert_eq!(ts.seconds, same.seconds);
+            prop_assert_eq!(ts.nanos, same.nanos);
+        }
+
+        #[test]
+        fn prop_timestamp_diff_self_is_zero(ts in arb_timestamp()) {
+            prop_assert_eq!(ts.diff_nanos(&ts), 0);
+        }
+
+        #[test]
+        fn prop_timestamp_invalid_nanos(seconds in any::<i64>(), nanos in 1_000_000_000u32..) {
+            prop_assert!(Timestamp::new(seconds, nanos).is_err());
+        }
+    }
+
+    // === from_slice length validation (fuzzing) ===
+
+    proptest! {
+        #[test]
+        fn prop_digest_from_slice_validates_len(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
+            if bytes.len() != 32 {
+                prop_assert!(Digest::from_slice(&bytes).is_err());
+            } else {
+                prop_assert!(Digest::from_slice(&bytes).is_ok());
+            }
+        }
+
+        #[test]
+        fn prop_signature_from_slice_validates_len(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
+            if bytes.len() != 64 {
+                prop_assert!(Signature::from_slice(&bytes).is_err());
+            } else {
+                prop_assert!(Signature::from_slice(&bytes).is_ok());
+            }
+        }
+
+        #[test]
+        fn prop_public_key_from_slice_validates_len(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
+            if bytes.len() != 32 {
+                prop_assert!(PublicKey::from_slice(&bytes).is_err());
+            } else {
+                prop_assert!(PublicKey::from_slice(&bytes).is_ok());
+            }
+        }
+
+        #[test]
+        fn prop_nonce_from_slice_validates_len(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
+            if bytes.len() != 32 {
+                prop_assert!(Nonce::from_slice(&bytes).is_err());
+            } else {
+                prop_assert!(Nonce::from_slice(&bytes).is_ok());
+            }
+        }
+
+        #[test]
+        fn prop_digest_from_hex_validates(s in "[0-9a-fA-F]{0,100}") {
+            match Digest::from_hex(&s) {
+                Ok(_) => prop_assert_eq!(s.len(), 64),
+                Err(_) => prop_assert_ne!(s.len(), 64),
+            }
+        }
     }
 }

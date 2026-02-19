@@ -272,4 +272,99 @@ mod tests {
             assert_eq!(path.compute_root(&leaf.compute_hash()), *tree.root_hash());
         }
     }
+
+    // === Property-based tests ===
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Core invariant: for any tree size, ALL leaf paths must verify to the root.
+        #[test]
+        fn prop_all_paths_verify(size in 1usize..=200) {
+            let mut builder = StampTreeBuilder::new();
+            for i in 0..size {
+                builder.add_leaf(make_test_leaf(
+                    (i % 256) as u8,
+                    ((i + 50) % 256) as u8,
+                    i as i64 * 1000,
+                ));
+            }
+            let tree = builder.build(Timestamp::new(1000, 0).unwrap());
+            prop_assert_eq!(tree.leaf_count(), size);
+
+            for i in 0..size {
+                let path = tree.generate_path(i);
+                prop_assert!(
+                    path.is_some(),
+                    "generate_path({}) returned None for tree of size {}", i, size
+                );
+                let path = path.unwrap();
+                let leaf = tree.get_leaf(i).unwrap();
+                let computed_root = path.compute_root(&leaf.compute_hash());
+                prop_assert_eq!(
+                    computed_root, *tree.root_hash(),
+                    "Path verification failed for leaf {} in tree of size {}", i, size
+                );
+            }
+        }
+
+        /// Out-of-bounds leaf index returns None.
+        #[test]
+        fn prop_out_of_bounds_returns_none(size in 1usize..=100) {
+            let mut builder = StampTreeBuilder::new();
+            for i in 0..size {
+                builder.add_leaf(make_test_leaf(i as u8, (i + 10) as u8, 0));
+            }
+            let tree = builder.build(Timestamp::new(1000, 0).unwrap());
+            prop_assert!(tree.generate_path(size).is_none());
+            prop_assert!(tree.generate_path(size + 1).is_none());
+        }
+
+        /// Root hash is deterministic for identical inputs.
+        #[test]
+        fn prop_tree_root_deterministic(size in 1usize..=50) {
+            let ts = Timestamp::new(1000, 0).unwrap();
+
+            let build = || {
+                let mut builder = StampTreeBuilder::new();
+                for i in 0..size {
+                    builder.add_leaf(make_test_leaf(i as u8, (i + 10) as u8, i as i64));
+                }
+                builder.build(ts)
+            };
+
+            let tree1 = build();
+            let tree2 = build();
+            prop_assert_eq!(tree1.root_hash(), tree2.root_hash());
+        }
+
+        /// Corrupting a single sibling hash invalidates the path.
+        #[test]
+        fn prop_corrupted_sibling_invalidates_path(
+            size in 2usize..=50,
+            corrupt_index in any::<usize>()
+        ) {
+            let mut builder = StampTreeBuilder::new();
+            for i in 0..size {
+                builder.add_leaf(make_test_leaf(i as u8, (i + 10) as u8, 0));
+            }
+            let tree = builder.build(Timestamp::new(1000, 0).unwrap());
+
+            let leaf = tree.get_leaf(0).unwrap();
+            let mut path = tree.generate_path(0).unwrap();
+
+            if !path.siblings.is_empty() {
+                let idx = corrupt_index % path.siblings.len();
+                let mut corrupted_bytes = *path.siblings[idx].hash.as_bytes();
+                corrupted_bytes[0] ^= 0x01;
+                path.siblings[idx].hash = Digest::new(corrupted_bytes);
+
+                let computed = path.compute_root(&leaf.compute_hash());
+                prop_assert_ne!(
+                    computed, *tree.root_hash(),
+                    "Corrupted sibling should produce different root"
+                );
+            }
+        }
+    }
 }
