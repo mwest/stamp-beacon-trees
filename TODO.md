@@ -22,6 +22,7 @@
 - [x] **Completed section 2.2 TLS enhancements** - Certificate generation script (`scripts/generate-certs.sh`), TLS certificate pinning with SPKI SHA-256 verification (RFC 7469), TLS test infrastructure with `rcgen` runtime cert generation, 7 TLS integration tests, and `CERTIFICATES.md` documentation. See `sbt-client/src/tls.rs`, `sbt-client/tests/tls_integration.rs`.
 - [x] **Completed section 3.3 rate limiting enhancements** - Rate limit response headers (`x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-reset`) on all gRPC endpoints, structured violation logging with client IP, and `AtomicU64` metrics counters (`requests_checked`, `rejections_per_ip`, `rejections_global`). See `sbt-notary/src/rate_limit.rs`, `sbt-notary/src/grpc.rs`.
 - [x] **Completed section 5 HSM security improvements** - PIN zeroization using `Zeroizing<String>` wrapper from the `zeroize` crate, HSM error message sanitization (full details in debug builds, category-only in release builds via `sanitize_error()`), and improved `Drop` implementation with `tracing::error!` logging for logout/lock failures. See `sbt-notary/src/hsm.rs`.
+- [x] **Completed section 13 testing improvements** - Property-based tests (proptest) for sbt-types (serde/hex roundtrips, timestamp arithmetic, from_slice validation) and sbt-core (Merkle path verification for all tree sizes 1-200, root determinism, sibling corruption detection, signature mutation detection). Criterion benchmarks for tree construction (1-10k leaves), path generation, proof verification, hash ops, JSON serialization. Large batch integration tests (10k concurrent, 1k sequential) and network failure simulation. Proptest-based fuzzing for all input parsers. Test count: 68 to 121 (+53 functions, ~13k inputs). See `sbt-types/src/primitives.rs`, `sbt-core/src/merkle.rs`, `sbt-core/benches/core_benchmarks.rs`, `sbt-client/tests/large_batch.rs`, `sbt-types/tests/fuzz_parsing.rs`.
 
 ---
 
@@ -352,7 +353,7 @@
 
 ## Code Quality & Testing
 
-### 13. Testing Improvements 🧪 MEDIUM PRIORITY
+### 13. Testing Improvements ✅ MOSTLY COMPLETE
 
 #### 13.1 Unit Tests
 
@@ -360,39 +361,43 @@
 - [x] Primitives tests
 - [x] Message tests
 - [ ] Improve test coverage to >90%
-- [ ] Add property-based tests (proptest) for:
-  - Merkle path verification (for any tree, path must verify)
-  - Timestamp arithmetic (no overflow, reversible operations)
-  - Serialization round-trips
-- [ ] Add fuzzing tests for input parsers
+- [x] Add property-based tests (proptest) for:
+  - Merkle path verification (for any tree size 1-200, all paths verify)
+  - Timestamp arithmetic (add_nanos roundtrip, zero identity, diff self)
+  - Serialization round-trips (JSON serde + hex for all 5 types)
+  - Hash determinism, collision resistance, non-commutativity
+  - Signature mutation detection, spurious sibling detection
+  - from_slice length validation for all byte-array types
+- [x] Add fuzzing tests for input parsers (`sbt-types/tests/fuzz_parsing.rs`)
 
 #### 13.2 Integration Tests
 
-- [ ] End-to-end notary+client tests
-- [ ] HSM integration tests (with real HSM)
-- [ ] Network failure simulation
-- [ ] Concurrent client tests
-- [ ] Large batch tests (10k+ requests)
+- [x] End-to-end notary+client tests (9 integration tests)
+- [ ] HSM integration tests (with real HSM) — requires hardware
+- [x] Network failure simulation (`sbt-client/tests/network_failure.rs`)
+- [x] Concurrent client tests (`sbt-client/tests/concurrent.rs`)
+- [x] Large batch tests (10k concurrent, 1k sequential — `sbt-client/tests/large_batch.rs`)
 
 #### 13.3 Benchmarks
 
-**Note**: `criterion` is in dependencies but no benchmarks implemented yet.
+- [x] Tree construction time vs batch size (1, 10, 100, 500, 1k, 5k, 10k leaves)
+- [x] Signature verification benchmarks
+- [x] Path generation benchmarks
+- [x] Serialization benchmarks (JSON serialize/deserialize)
+- [x] Hash operation benchmarks (compute_leaf_hash, hash_pair)
+- [x] Batch processing throughput (`sbt-client/benches/throughput.rs`)
+- [ ] Add to CI/CD (Section 15)
 
-- [ ] Tree construction time vs batch size
-- [ ] Signature verification benchmarks
-- [ ] Path generation benchmarks
-- [ ] Serialization benchmarks
-- [ ] Batch processing throughput
-- [ ] Add to CI/CD
+**Benchmark files**: `sbt-core/benches/core_benchmarks.rs`, `sbt-client/benches/throughput.rs`
 
 #### 13.4 Security Testing
 
-- [ ] Fuzzing input parsers
-- [ ] Fuzzing Merkle path verification
-- [ ] Timing side-channel analysis
-- [ ] Memory safety audit
-- [ ] Dependency audit automation (`cargo audit`)
-- [ ] Penetration testing
+- [x] Fuzzing input parsers (proptest-based, 13 fuzz functions)
+- [x] Fuzzing Merkle path verification (proptest: corruption detection, spurious siblings)
+- [ ] Timing side-channel analysis (requires specialized tooling)
+- [ ] Memory safety audit (`cargo miri` — CI concern)
+- [ ] Dependency audit automation (`cargo audit` — CI concern, Section 15)
+- [ ] Penetration testing (out of scope for automated tests)
 
 ### 14. Documentation 📖 ONGOING
 
